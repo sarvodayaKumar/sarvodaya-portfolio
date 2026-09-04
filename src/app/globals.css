@@ -181,6 +181,42 @@ body {
   }
 }
 
+.blog-prose {
+  color: #a1a1aa;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.blog-prose h2,
+.blog-prose h3 {
+  color: #fafafa;
+  font-family: var(--font-syne), serif;
+  margin: 2rem 0 0.75rem;
+}
+
+.blog-prose p {
+  margin: 0 0 1rem;
+}
+
+.blog-prose a {
+  color: #67e8f9;
+}
+
+.blog-prose code {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.875em;
+  color: #e7e5e4;
+}
+
+.blog-prose ul,
+.blog-prose ol {
+  margin: 0 0 1rem 1.25rem;
+}
+
+.blog-prose li {
+  margin: 0.25rem 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

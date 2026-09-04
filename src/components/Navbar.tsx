@@ -1,21 +1,30 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { profile } from "@/data/profile";
 import ResumeLink from "./ResumeLink";
 
-const navLinks = [
+const sectionLinks = [
   { href: "#about", label: "About" },
   { href: "#expertise", label: "Expertise" },
-          { href: "#experience", label: "Experience" },
-          { href: "#contributions", label: "Open source" },
+  { href: "#experience", label: "Experience" },
+  { href: "#contributions", label: "Open source" },
   { href: "#projects", label: "Projects" },
   { href: "#contact", label: "Contact" },
 ];
 
-export default function Navbar() {
+type NavbarProps = {
+  homeHref?: string;
+  blogHref?: string;
+};
+
+export default function Navbar({ homeHref = "/", blogHref = "/blog" }: NavbarProps) {
+  const pathname = usePathname();
+  const onHome = pathname === "/" && homeHref === "/";
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [active, setActive] = useState("");
@@ -24,7 +33,9 @@ export default function Navbar() {
     const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener("scroll", onScroll);
 
-    const ids = navLinks.map((l) => l.href.slice(1));
+    if (!onHome) return () => window.removeEventListener("scroll", onScroll);
+
+    const ids = sectionLinks.map((l) => l.href.slice(1));
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -42,7 +53,11 @@ export default function Navbar() {
       window.removeEventListener("scroll", onScroll);
       observer.disconnect();
     };
-  }, []);
+  }, [onHome]);
+
+  const sectionHref = (hash: string) =>
+    onHome ? hash : `${homeHref === "/" ? "" : homeHref}/${hash}`;
+  const onBlog = pathname.startsWith("/blog") || blogHref === "/";
 
   return (
     <motion.header
@@ -56,7 +71,7 @@ export default function Navbar() {
       }`}
     >
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <a href="#" className="group flex items-center gap-2">
+        <Link href={homeHref} className="group flex items-center gap-2">
           <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-white/15 bg-white/5 text-xs font-semibold tracking-wide text-stone-200">
             SK
             <span className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -64,20 +79,20 @@ export default function Navbar() {
           <span className="hidden text-sm text-zinc-400 transition-colors group-hover:text-white sm:block">
             {profile.name.split(" ")[0]}
           </span>
-        </a>
+        </Link>
 
         <ul className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1 backdrop-blur-xl md:flex">
-          {navLinks.map((link) => (
+          {sectionLinks.map((link) => (
             <li key={link.href}>
               <a
-                href={link.href}
+                href={sectionHref(link.href)}
                 className={`relative rounded-full px-3 py-1.5 text-sm transition-all ${
-                  active === link.href
+                  onHome && active === link.href
                     ? "text-white"
                     : "text-zinc-400 hover:text-stone-200"
                 }`}
               >
-                {active === link.href && (
+                {onHome && active === link.href && (
                   <motion.span
                     layoutId="nav-pill"
                     className="absolute inset-0 rounded-full bg-white/10"
@@ -88,6 +103,17 @@ export default function Navbar() {
               </a>
             </li>
           ))}
+          <li>
+            <Link
+              href={blogHref}
+              className={`relative rounded-full px-3 py-1.5 text-sm transition-all ${
+                onBlog ? "text-white" : "text-zinc-400 hover:text-stone-200"
+              }`}
+            >
+              {onBlog && <span className="absolute inset-0 rounded-full bg-white/10" />}
+              <span className="relative z-10">Blog</span>
+            </Link>
+          </li>
         </ul>
 
         <ResumeLink className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 md:inline-flex" />
@@ -111,10 +137,10 @@ export default function Navbar() {
             className="overflow-hidden border-t border-white/10 bg-[#05080f]/95 backdrop-blur-xl md:hidden"
           >
             <ul className="flex flex-col gap-1 px-6 py-4">
-              {navLinks.map((link) => (
+              {sectionLinks.map((link) => (
                 <li key={link.href}>
                   <a
-                    href={link.href}
+                    href={sectionHref(link.href)}
                     onClick={() => setMobileOpen(false)}
                     className="block rounded-lg px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-cyan-500/10 hover:text-cyan-300"
                   >
@@ -122,6 +148,15 @@ export default function Navbar() {
                   </a>
                 </li>
               ))}
+              <li>
+                <Link
+                  href={blogHref}
+                  onClick={() => setMobileOpen(false)}
+                  className="block rounded-lg px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-cyan-500/10 hover:text-cyan-300"
+                >
+                  Blog
+                </Link>
+              </li>
               <li>
                 <ResumeLink className="mt-2 flex items-center justify-center gap-2 rounded-lg border border-white/15 px-3 py-2.5 text-sm text-zinc-200" />
               </li>

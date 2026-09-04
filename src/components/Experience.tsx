@@ -93,12 +93,8 @@ function Timeline({
 }
 
 export default function Experience() {
-  const employment = (
-    "employment" in profile ? profile.employment : profile.experience.filter((job) => !("type" in job && job.type === "oss"))
-  ) as Role[];
-  const openSource = (
-    "openSource" in profile ? profile.openSource : profile.experience.filter((job) => "type" in job && job.type === "oss")
-  ) as Role[];
+  const employment = profile.employment as Role[];
+  const openSource = profile.openSource as Role[];
 
   return (
     <SectionWrapper id="experience" subtitle="Career" title="Experience">
@@ -107,9 +103,6 @@ export default function Experience() {
           <h3 className="mb-6 font-[family-name:var(--font-syne)] text-xl text-white">
             Employment
           </h3>
-          <p className="mb-8 text-sm text-zinc-500">
-            Pulled from the resume PDF. Updates automatically when the file changes.
-          </p>
           <Timeline items={employment} />
         </div>
 

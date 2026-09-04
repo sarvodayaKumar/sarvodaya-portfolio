@@ -4,7 +4,7 @@ Personal site for [Sarvodaya Kumar](https://github.com/sarvodayaKumar), Senior S
 
 ## Run locally
 
-Requires **Node.js 20.9+** (pinned to **v26.8.1** via `.nvmrc`).
+Requires **Node.js 22** (pinned in `.nvmrc` so Vercel and local match).
 
 ```bash
 nvm use
@@ -36,3 +36,34 @@ RESUME_PATH=/path/to/resume.pdf npm run resume:sync
 ```
 
 Replace `public/profile.png` with a headshot if you have one.
+
+## Blog
+
+Posts are Markdown files in `content/blog/`.
+
+```md
+---
+title: Your title
+date: 2026-09-12
+summary: One or two sentences.
+published: true
+---
+
+Write in Markdown. Files that start with `_` are ignored (see `_template.md`).
+Drafts use `published: false`.
+```
+
+Locally the blog is at `/blog`. In production it is served on **blog.sarvodaya.dev** from the same Vercel project.
+
+Add both hostnames on that Vercel project:
+
+1. `sarvodaya.dev` (and `www` if you want it)
+2. `blog.sarvodaya.dev`
+
+DNS:
+
+- Apex / www → Vercel
+- `blog` CNAME → `cname.vercel-dns.com`
+
+The homepage Blog block updates on refresh in `npm run dev` or the next production build.
+

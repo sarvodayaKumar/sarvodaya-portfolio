@@ -18,6 +18,7 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sarvodaya.dev"),
   title: "Sarvodaya Kumar | Senior Software Engineer",
   description:
     "Senior Software Engineer in Bangalore with 5+ years in Go microservices, Kubernetes, Terraform, and Azure.",
