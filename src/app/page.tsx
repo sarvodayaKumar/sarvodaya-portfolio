@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import About from "@/components/About";
-import Expertise from "@/components/Expertise";
+import Services from "@/components/Services";
 import Contributions from "@/components/Contributions";
 import TechStack from "@/components/TechStack";
 import Experience from "@/components/Experience";
@@ -26,7 +26,7 @@ export default async function Home() {
       <main className="relative z-10">
         <Hero />
         <About />
-        <Expertise />
+        <Services />
         <Experience />
         <Contributions />
         <TechStack />

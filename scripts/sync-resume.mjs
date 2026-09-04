@@ -265,16 +265,16 @@ function buildProfile(parsed, overrides) {
   const specialtyBits = Object.values(parsed.techStack).flat().slice(0, 4);
   return {
     name: parsed.name,
-    title: parsed.title,
+    title: overrides.title || parsed.title,
     specialty: parsed.location
       ? `${parsed.location} · ${specialtyBits.slice(0, 3).join(" · ")}`
       : specialtyBits.slice(0, 3).join(" · "),
-    tagline: parsed.summary,
+    tagline: overrides.tagline || parsed.summary,
     avatar: overrides.avatar || "/profile.png",
     experienceYears: parsed.years,
     status: overrides.status || "Open to collaboration",
     resumeUrl: overrides.resumeUrl || "/resume.pdf",
-    typingLines: [
+    typingLines: overrides.typingLines || [
       parsed.experience[0] ? `${parsed.experience[0].role} @ ${parsed.experience[0].company}` : parsed.title,
       overrides.openSource?.length
         ? "Open source: sensu-go and terraform-provider-aquasec"
@@ -301,7 +301,7 @@ function buildProfile(parsed, overrides) {
       techStack: specialtyBits.join(", "),
       focusAreas: snippet(parsed.experience[0]?.highlights[0] || parsed.title, 140),
     },
-    about: [
+    about: overrides.about || [
       parsed.summary,
       overrides.openSourceAbout,
       parsed.experience[1]?.highlights[0],

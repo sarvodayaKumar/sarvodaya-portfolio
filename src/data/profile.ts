@@ -3,7 +3,7 @@
 
 export const profile = {
   name: "Sarvodaya Kumar",
-  title: "Senior Software Engineer",
+  title: "Cloud Backend Developer",
   specialty: "Bangalore, Karnataka · Golang (Advanced) · C (Intermediate) · Docker",
   tagline: "Senior Software Engineer with 5+ years of experience in network performance optimization, microservices architecture, and DevOps practices. Skilled in automating CI/CD pipelines, containerization with Docker, orchestrating with Kubernetes and building terraform infrastructure. Expertise in cloud technologies. Adept at root cause analysis, performance monitoring, and enhancing security through advanced encryption algorithms. Proven ability to collaborate effectively in cross-functional teams and deliver scalable, reliable solutions in high-performance environments.",
   avatar: "/profile.png",
@@ -140,7 +140,7 @@ export const profile = {
       label: "OSS repositories"
     },
     {
-      value: "Golang (Advanced)",
+      value: "Go",
       label: "Primary language"
     },
     {

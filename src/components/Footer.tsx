@@ -1,24 +1,23 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { profile } from "@/data/profile";
+import { site } from "@/data/site";
 import { navUrls } from "@/lib/site";
 
 export default async function Footer() {
   const { blogHref } = navUrls((await headers()).get("host") ?? "");
 
   return (
-    <footer className="relative z-10 border-t border-white/10 px-6 py-8 backdrop-blur-md">
+    <footer className="relative z-10 border-t border-border px-6 py-8 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-        <p className="font-mono text-sm text-zinc-500">
-          © {new Date().getFullYear()} {profile.name}. Built with Next.js.
+        <p className="font-mono text-sm text-muted">
+          © {new Date().getFullYear()} {profile.name}
         </p>
-        <div className="flex items-center gap-4 text-xs text-zinc-500">
-          <Link href={blogHref} className="hover:text-zinc-300">
+        <div className="flex items-center gap-4 text-xs text-muted">
+          <Link href={blogHref} className="hover:text-foreground">
             Blog
           </Link>
-          <span className="max-w-md text-center sm:text-right">
-            Senior software engineer — distributed systems, observability, cloud platforms.
-          </span>
+          <span className="max-w-md text-center sm:text-right">{site.role} — Go, Azure, Kubernetes, Terraform.</span>
         </div>
       </div>
     </footer>

@@ -35,14 +35,14 @@ export default async function BlogPostPage({ params }: Props) {
   return (
     <SiteChrome>
       <article className="relative z-10 mx-auto max-w-3xl px-6 pt-32 pb-24">
-        <Link href={indexHref} className="text-sm text-zinc-500 transition hover:text-cyan-300">
+        <Link href={indexHref} className="text-sm text-muted transition hover:text-accent">
           ← All posts
         </Link>
-        <p className="mt-8 font-mono text-xs text-zinc-500">{post.date}</p>
-        <h1 className="mt-3 font-[family-name:var(--font-syne)] text-4xl font-semibold text-white">
+        <p className="mt-8 font-mono text-xs text-muted">{post.date}</p>
+        <h1 className="mt-3 font-[family-name:var(--font-syne)] text-4xl font-semibold text-foreground">
           {post.title}
         </h1>
-        {post.summary && <p className="mt-4 text-lg text-zinc-400">{post.summary}</p>}
+        {post.summary && <p className="mt-4 text-lg text-muted">{post.summary}</p>}
         <div className="blog-prose mt-10">
           <ReactMarkdown>{post.content}</ReactMarkdown>
         </div>

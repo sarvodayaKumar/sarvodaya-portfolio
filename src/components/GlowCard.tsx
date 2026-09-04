@@ -24,18 +24,18 @@ export default function GlowCard({
     const y = ((event.clientY - rect.top) / rect.height) * 100;
     setCoords({ x, y });
     setTilt({
-      ry: ((event.clientX - rect.left) / rect.width - 0.5) * 10,
-      rx: (0.5 - (event.clientY - rect.top) / rect.height) * 10,
+      ry: ((event.clientX - rect.left) / rect.width - 0.5) * 8,
+      rx: (0.5 - (event.clientY - rect.top) / rect.height) * 7,
     });
   };
 
   const style = {
     transform: hover
-      ? `perspective(900px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) translateY(-6px)`
-      : "perspective(900px) rotateX(0deg) rotateY(0deg)",
+      ? `perspective(1100px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) translateY(-4px)`
+      : "perspective(1100px) rotateX(0deg) rotateY(0deg)",
     background: hover
-      ? `radial-gradient(420px circle at ${coords.x}% ${coords.y}%, rgba(34,211,238,0.16), transparent 42%), rgba(9,14,24,0.72)`
-      : "rgba(9,14,24,0.55)",
+      ? `radial-gradient(420px circle at ${coords.x}% ${coords.y}%, var(--glow), transparent 42%), var(--card)`
+      : "var(--card)",
   };
 
   const inner = (
@@ -44,14 +44,14 @@ export default function GlowCard({
         className="pointer-events-none absolute inset-px rounded-2xl opacity-0 transition-opacity duration-300"
         style={{
           opacity: hover ? 1 : 0,
-          background: `radial-gradient(500px circle at ${coords.x}% ${coords.y}%, rgba(34,211,238,0.22), transparent 40%)`,
+          background: `radial-gradient(500px circle at ${coords.x}% ${coords.y}%, var(--glow), transparent 40%)`,
         }}
       />
       <span className="relative z-10 block h-full">{children}</span>
     </>
   );
 
-  const sharedClass = `relative block overflow-hidden rounded-2xl border border-white/10 shadow-[0_0_0_1px_rgba(34,211,238,0.04)] transition-[transform,box-shadow] duration-200 ease-out ${className}`;
+  const sharedClass = `relative block overflow-hidden rounded-2xl border border-border shadow-sm backdrop-blur-md transition-[transform,box-shadow] duration-200 ease-out ${className}`;
 
   if (href) {
     return (

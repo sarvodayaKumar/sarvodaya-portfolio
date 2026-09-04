@@ -1,5 +1,7 @@
 {
   "avatar": "/profile.png",
+  "title": "Cloud Backend Developer",
+  "tagline": "I design and ship production backends on Azure — Go services, Kubernetes, and Terraform.",
   "status": "Open to collaboration",
   "resumeUrl": "/resume.pdf",
   "links": {

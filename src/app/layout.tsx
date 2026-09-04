@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Syne } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import PageLoader from "@/components/PageLoader";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -17,24 +19,28 @@ const syne = Syne({
   subsets: ["latin"],
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://sarvodaya.dev"),
-  title: "Sarvodaya Kumar | Senior Software Engineer",
+  metadataBase: new URL(siteUrl),
+  title: "Sarvodaya Kumar | Cloud Backend Developer",
   description:
-    "Senior Software Engineer in Bangalore with 5+ years in Go microservices, Kubernetes, Terraform, and Azure.",
+    "Cloud backend developer in Bangalore — Go microservices, Azure, Kubernetes, Terraform, and production CI/CD.",
   keywords: [
-    "Senior Software Engineer",
+    "Cloud Backend Developer",
     "Golang",
+    "Azure",
     "Kubernetes",
     "Terraform",
-    "Azure",
     "DevOps",
   ],
   authors: [{ name: "Sarvodaya Kumar" }],
   openGraph: {
-    title: "Sarvodaya Kumar | Senior Software Engineer",
+    title: "Sarvodaya Kumar | Cloud Backend Developer",
     description:
-      "Senior Software Engineer with 5+ years in microservices, CI/CD, Kubernetes, and Terraform on Azure.",
+      "Go backends, Azure platforms, Kubernetes delivery, and Terraform providers.",
     type: "website",
   },
 };
@@ -44,9 +50,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable} ${syne.variable} h-full scroll-smooth`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full bg-[#0b0d12] text-zinc-200 antialiased">
-        {children}
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className="min-h-full bg-background text-foreground antialiased">
+        <ThemeProvider>
+          <PageLoader>{children}</PageLoader>
+        </ThemeProvider>
       </body>
     </html>
   );

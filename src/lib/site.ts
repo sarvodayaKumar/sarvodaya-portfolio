@@ -2,12 +2,17 @@ export const SITE_HOST = process.env.NEXT_PUBLIC_SITE_HOST ?? "sarvodaya.dev";
 export const BLOG_HOST = process.env.NEXT_PUBLIC_BLOG_HOST ?? "blog.sarvodaya.dev";
 
 export function hostname(hostHeader: string) {
-  return hostHeader.split(":")[0]?.toLowerCase() ?? "";
+  return hostHeader.split(",")[0]?.split(":")[0]?.trim().toLowerCase() ?? "";
+}
+
+function isVercelPreview(host: string) {
+  return host.endsWith(".vercel.app") || host.includes("localhost");
 }
 
 export function isBlogHost(hostHeader: string) {
   const host = hostname(hostHeader);
-  return host === BLOG_HOST || host.startsWith("blog.");
+  if (!host || isVercelPreview(host)) return false;
+  return host === BLOG_HOST || host === `www.${BLOG_HOST}`;
 }
 
 export function isApexHost(hostHeader: string) {
