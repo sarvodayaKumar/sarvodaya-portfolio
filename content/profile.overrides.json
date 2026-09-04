@@ -1,0 +1,110 @@
+{
+  "avatar": "/profile.png",
+  "status": "Open to collaboration",
+  "resumeUrl": "/resume.pdf",
+  "links": {
+    "linkedin": "https://linkedin.com/in/sarvodaya",
+    "github": "https://github.com/sarvodayaKumar",
+    "workGithub": "https://github.com/sarvodaya-kumar-26"
+  },
+  "openSourceAbout": "Alongside product work, I contribute upstream in Go to Sensu (observability engine, core libraries, etcd integration, packaging) and Aqua Security's Terraform provider — resources, REST clients, and acceptance tests.",
+  "openSource": [
+    {
+      "type": "oss",
+      "role": "Open Source Contributor",
+      "company": "Sensu",
+      "period": "2025 – Present",
+      "focus": "Observability engine: handlers, pipelines, core libraries, and packaging",
+      "highlights": [
+        "Contributed to sensu/sensu-go — event handlers, check filters, and telemetry agent pipelines",
+        "Extended sensu/core with engine abstractions and pipeline interfaces in Go",
+        "Worked on sensu/etcd cluster state sync and sensu/sensu-packaging release automation",
+        "Opened and landed PRs and issues across the Sensu Go stack (work handle @sarvodaya-kumar-26)"
+      ]
+    },
+    {
+      "type": "oss",
+      "role": "Open Source Contributor",
+      "company": "Aqua Security",
+      "period": "2025 – Present",
+      "focus": "terraform-provider-aquasec — IaC for the Aqua platform",
+      "highlights": [
+        "Implemented custom Terraform resources and REST API clients in Go",
+        "Added acceptance tests with terraform-plugin-testing (plan / apply / destroy)",
+        "Shipped API key authorization and resources for serverless apps, log management, and monitoring",
+        "Landed multiple provider PRs in the v0.12.x series"
+      ]
+    }
+  ],
+  "contributions": [
+    {
+      "repo": "aquasecurity/terraform-provider-aquasec",
+      "url": "https://github.com/aquasecurity/terraform-provider-aquasec",
+      "org": "Aqua Security",
+      "focus": "Custom resources, REST APIs, API-key auth, and acceptance tests in Go",
+      "prs": ["374", "373", "372", "371", "370", "369"]
+    },
+    {
+      "repo": "sensu/sensu-go",
+      "url": "https://github.com/sensu/sensu-go",
+      "org": "Sensu",
+      "focus": "Event handlers, check filters, and telemetry pipelines",
+      "prs": ["5176", "5171", "5170", "5169"],
+      "issues": ["5175", "5173", "5172"]
+    },
+    {
+      "repo": "sensu/core",
+      "url": "https://github.com/sensu/core",
+      "org": "Sensu",
+      "focus": "Core engine abstractions and pipeline interfaces",
+      "prs": ["53"],
+      "issues": ["54"]
+    },
+    {
+      "repo": "sensu/etcd",
+      "url": "https://github.com/sensu/etcd",
+      "org": "Sensu",
+      "focus": "State synchronization and etcd cluster orchestration",
+      "prs": []
+    },
+    {
+      "repo": "sensu/sensu-packaging",
+      "url": "https://github.com/sensu/sensu-packaging",
+      "org": "Sensu",
+      "focus": "Build automation and packaging pipeline maintenance",
+      "prs": []
+    }
+  ],
+  "projects": [
+    {
+      "name": "terraform-provider-aquasec",
+      "description": "Aqua Security Terraform provider — platform resources, APIs, and acceptance tests",
+      "url": "https://github.com/sarvodayaKumar/terraform-provider-aquasec",
+      "tags": ["Go", "Terraform", "Security"]
+    },
+    {
+      "name": "terraform-provider-dashboard",
+      "description": "Custom Terraform provider for dashboard resources over a REST API",
+      "url": "https://github.com/sarvodayaKumar/terraform-provider-dashboard",
+      "tags": ["Go", "Terraform", "API"]
+    },
+    {
+      "name": "infrastructure",
+      "description": "Reusable Terraform modules for cloud provisioning",
+      "url": "https://github.com/sarvodayaKumar/infrastructure",
+      "tags": ["Terraform", "Azure"]
+    },
+    {
+      "name": "deployment",
+      "description": "Delivery pipelines with promotion gates and scanning",
+      "url": "https://github.com/sarvodayaKumar/deployment",
+      "tags": ["CI/CD", "HCL"]
+    },
+    {
+      "name": "web_application",
+      "description": "Cloud-native application topology and container config",
+      "url": "https://github.com/sarvodayaKumar/web_application",
+      "tags": ["Kubernetes", "Azure"]
+    }
+  ]
+}

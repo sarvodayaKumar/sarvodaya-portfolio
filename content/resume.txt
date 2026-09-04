@@ -1,0 +1,64 @@
+Sarvodaya Kumar
+Senior Software Engineer | Bangalore, Karnataka | +91-9776159842 | sarvodaya.kumar@outlook.com | Linkedln | Github |
+SUMMARY
+Senior Software Engineer with 5+ years of experience in network performance optimization, microservices architecture, and
+DevOps practices. Skilled in automating CI/CD pipelines, containerization with Docker, orchestrating with Kubernetes and
+building terraform infrastructure. Expertise in cloud technologies. Adept at root cause analysis, performance monitoring, and
+enhancing security through advanced encryption algorithms. Proven ability to collaborate effectively in cross-functional teams
+and deliver scalable, reliable solutions in high-performance environments.
+CERTIfiCATION
+Azure Fundamentals(AZ-900)
+– Issued by : Microsoft
+– Credential ID : 21634BE1265817EF
+– Certification number : 9A0443-1C1A3H
+– Date : May 2024
+SKILLS
+Languages: Golang (Advanced), C (Intermediate)
+DevOps & CI/CD: Docker, Kubernetes, Helm, Jenkins, CI/CD pipelines, Bash, Maven, YAML scripting, Git
+Cloud & Infrastructure as Code: Azure, Azure DevOps, Terraform, Ansible
+Monitoring & Security: Prometheus, Grafana, Trivy, Tenable, Grype, JFrog Artifactory, Azure APIM, Linux (RHEL 7/8, Ubuntu),
+Networking fundamentals
+APIs & Scripting: RESTful APIs, gRPC, Postgres
+EXPERIENCE
+Senior Development Engineer | Calsoft Pvt Limited June 2025 – Present
+– Developed and extended core provider resource support in Go by contributing to the v0.12.x release series of the Aqua
+Terraform provider—adding capabilities for managing complex platform entities such as Serverless Applications, Log
+Management, and Monitoring Systems, enabling customers to model comprehensive infrastructure state via IaC.
+– Optimized Terraform acceptance test coverage and framework usage (terraform-plugin-testing) to support new resource
+lifecycle validation (Create/Read/Update/Delete) workflows and prevent regressions during plan/apply/destroy operations
+across provider releases.
+– Enhanced provider API reliability by driving API client maturation in Go—implementing and refining client support for
+newly introduced endpoints (e.g., Log Management, Monitoring Systems), increasing alignment between Terraform
+schema and upstream REST APIs.
+– Designed and implemented Terraform state drift identification functionality in Go by analyzing real-world state
+inconsistencies and automating detection of configuration vs. actual infrastructure drift, improving reliability of desired vs.
+actual state verification.
+– Authored comprehensive acceptance tests for the Terraform provider using the terraform-plugin-testing framework (e.g.,
+TestAccXxx patterns), validating full Terraform lifecycle workflows—plan, apply, and destroy to ensure provider stability
+and real-world reliability.
+– Collaborated cross-functionally to integrate REST API enhancements, test automation, and CI pipeline improvements,
+aligning with customer requirements while maintaining high code quality and release cadence.
+– Developed API key authorization feature in the Terraform Provider Aqua Security, enabling secure programmatic access to
+Aqua Security APIs.
+Senior Project Engineer | Wipro Limited March 2021 – June 2025
+– Architected & implemented cloud-native microservices using Golang, Kubernetes, and Docker, applying robust software
+design principles and data structures & algorithms (DSA) to ensure scalability, maintainability, and performance.
+– Designed and developed RESTful APIs for inter-service and external communication, optimizing resource usage and
+reducing latency.
+– Engineered advanced encryption layers ensuring secure microservice interactions, reinforcing best practices in secure
+design and API communication.
+– Streamlined CI/CD pipelines using Azure DevOps (or Terraform, Jenkins), automating build, test, and deployment flows to
+deliver fast, reliable releases—a practice highlighted as essential for microservices roles.
+– Deployed and managed infrastructure on Azure, deploying microservices through container orchestration (Kubernetes),
+aligning with cloud-native practices.
+– Extended Terraform with custom Go-based providers and modules, driving infrastructure as code (IaC) to automate
+provisioning and maintain consistency across environments.
+– Applied core software design principles (e.g. modular architecture, SOLID, proper layering) across microservices, ensuring
+clean separation of concerns, scalability, and maintainability.
+– Reduced release cycle times and increased efficiency by 11% (use your quantifiable results), thanks to CI/CD automation,
+container orchestration, and DevOps tooling.
+EDUCATION
+Silicon Institute of Technology B.Tech in Electrical & Electronics Engineering | Bhubaneswar August 2016 – August 2020
+
+-- 1 of 1 --
+

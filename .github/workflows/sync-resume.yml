@@ -1,0 +1,35 @@
+name: Sync resume
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - content/resume.pdf
+      - content/profile.overrides.json
+      - scripts/sync-resume.mjs
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run resume:sync -- --source content/resume.pdf
+      - name: Commit generated profile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/data/profile.ts public/resume.pdf content/resume.txt content/resume.meta.json
+          if git diff --staged --quiet; then
+            echo "No resume-driven changes"
+          else
+            git commit -m "Sync portfolio from resume"
+            git push
+          fi
