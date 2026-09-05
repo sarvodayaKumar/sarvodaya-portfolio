@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { skillIconUrl } from "@/lib/skillIcons";
 
 export default function SkillIcon({
@@ -10,7 +11,9 @@ export default function SkillIcon({
   size?: number;
 }) {
   const src = skillIconUrl(name);
-  if (!src) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
     return (
       <span
         className="inline-flex shrink-0 items-center justify-center rounded-md bg-accent/10 font-mono text-[10px] font-semibold text-accent"
@@ -23,7 +26,7 @@ export default function SkillIcon({
   }
 
   return (
-    // Simple Icons CDN brand marks; next/image is unnecessary for tiny SVGs.
+    // Brand SVGs from Devicon / Simple Icons CDNs.
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
@@ -32,6 +35,7 @@ export default function SkillIcon({
       height={size}
       className="shrink-0 object-contain"
       loading="lazy"
+      onError={() => setFailed(true)}
     />
   );
 }
