@@ -28,16 +28,16 @@ export default function Expertise() {
               transition={{ delay: i * 0.1, duration: 0.5 }}
             >
               <GlowCard className="h-full p-6">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/20 to-fuchsia-500/20 text-cyan-300">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10 text-accent">
                   <Icon size={24} />
                 </div>
-                <h3 className="mb-3 font-[family-name:var(--font-syne)] text-lg font-semibold text-white">
+                <h3 className="mb-3 font-[family-name:var(--font-syne)] text-lg font-semibold text-foreground">
                   {item.title}
                 </h3>
                 <ul className="space-y-2">
                   {item.items.map((point) => (
-                    <li key={point} className="flex items-start gap-2 text-sm text-zinc-400">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+                    <li key={point} className="flex items-start gap-2 text-sm text-muted">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_8px_var(--glow)]" />
                       {point}
                     </li>
                   ))}

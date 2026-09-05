@@ -20,7 +20,9 @@ export default function Hero() {
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          className="relative"
         >
+          <div className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-accent/20 blur-[100px]" />
           {ready ? (
             <HeroPortrait3D />
           ) : (
@@ -43,9 +45,17 @@ export default function Hero() {
           transition={{ delay: 0.15, duration: 0.7 }}
           className="text-center lg:text-left"
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-accent">
-            {site.location}
-          </p>
+          <div className="flex items-center justify-center gap-3 lg:justify-start">
+            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-accent">
+              {site.location}
+            </p>
+            {profile.status ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-muted">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
+                {profile.status}
+              </span>
+            ) : null}
+          </div>
           <h1 className="mt-4 font-[family-name:var(--font-syne)] text-5xl font-semibold tracking-tight text-foreground sm:text-6xl lg:text-[4.6rem] lg:leading-[1.02]">
             {profile.name}
           </h1>
@@ -67,16 +77,6 @@ export default function Hero() {
             >
               Experience
             </a>
-            {profile.links.instagram ? (
-              <a
-                href={profile.links.instagram}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm text-foreground hover:border-accent hover:text-accent"
-              >
-                Instagram
-              </a>
-            ) : null}
           </div>
         </motion.div>
       </div>
