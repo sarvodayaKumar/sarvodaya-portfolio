@@ -1,18 +1,12 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowDown } from "lucide-react";
 import { profile } from "@/data/profile";
 import { site } from "@/data/site";
-import { useIntro } from "./IntroContext";
-
-const HeroPortrait3D = dynamic(() => import("./HeroPortrait3D"), { ssr: false });
+import Portrait from "./Portrait";
 
 export default function Hero() {
-  const { ready } = useIntro();
-
   return (
     <section className="relative z-10 flex min-h-[100svh] items-center px-6 pt-24 pb-12">
       <div className="mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-6">
@@ -20,23 +14,10 @@ export default function Hero() {
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="relative"
+          className="relative flex justify-center lg:justify-end"
         >
           <div className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-accent/20 blur-[100px]" />
-          {ready ? (
-            <HeroPortrait3D />
-          ) : (
-            <div className="relative mx-auto h-[440px] w-full max-w-[440px] lg:h-[580px] lg:max-w-none">
-              <Image
-                src={profile.avatar}
-                alt=""
-                fill
-                priority
-                sizes="440px"
-                className="object-contain opacity-0"
-              />
-            </div>
-          )}
+          <Portrait />
         </motion.div>
 
         <motion.div
