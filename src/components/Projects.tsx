@@ -5,6 +5,7 @@ import { ExternalLink, FolderGit2 } from "lucide-react";
 import { profile } from "@/data/profile";
 import GlowCard from "./GlowCard";
 import SectionWrapper from "./SectionWrapper";
+import SkillIcon from "./SkillIcon";
 
 export default function Projects() {
   return (
@@ -34,8 +35,9 @@ export default function Projects() {
                   {project.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-md border border-accent/20 bg-accent/10 px-2 py-0.5 font-mono text-xs text-accent"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-accent/20 bg-accent/10 px-2 py-0.5 font-mono text-xs text-accent"
                     >
+                      <SkillIcon name={tag} size={12} />
                       {tag}
                     </span>
                   ))}

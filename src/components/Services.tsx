@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { site } from "@/data/site";
 import SectionWrapper from "./SectionWrapper";
+import SkillIcon from "./SkillIcon";
 
 export default function Services() {
   return (
@@ -27,6 +28,17 @@ export default function Services() {
             <h3 className="mt-3 font-[family-name:var(--font-syne)] text-xl font-semibold text-foreground">
               {item.title}
             </h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {item.tools.map((tool) => (
+                <span
+                  key={tool}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-2 py-1 text-[11px] text-muted"
+                >
+                  <SkillIcon name={tool} size={12} />
+                  {tool}
+                </span>
+              ))}
+            </div>
             <p className="mt-3 text-sm leading-7 text-muted">{item.body}</p>
           </motion.article>
         ))}

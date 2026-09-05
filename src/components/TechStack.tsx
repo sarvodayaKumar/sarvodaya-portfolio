@@ -4,8 +4,11 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { profile } from "@/data/profile";
 import SectionWrapper from "./SectionWrapper";
+import SkillIcon from "./SkillIcon";
 
 const categories = Object.entries(profile.techStack) as [string, string[]][];
+
+const featured = ["Go", "Azure", "Kubernetes", "Terraform", "Docker", "Helm", "Prometheus", "Git"];
 
 export default function TechStack() {
   const [active, setActive] = useState(categories[0]?.[0] ?? "");
@@ -17,6 +20,19 @@ export default function TechStack() {
         Daily languages and platforms for cloud backends: Go first, then Azure, Kubernetes, Terraform,
         and the monitoring and scanning that sit around a release.
       </p>
+
+      <div className="mb-10 flex flex-wrap gap-3">
+        {featured.map((name) => (
+          <span
+            key={name}
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground"
+          >
+            <SkillIcon name={name} size={18} />
+            {name}
+          </span>
+        ))}
+      </div>
+
       <div className="grid gap-8 lg:grid-cols-5">
         <div className="flex flex-wrap gap-2 lg:flex-col">
           {categories.map(([key]) => (
@@ -44,14 +60,15 @@ export default function TechStack() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="flex flex-wrap gap-3"
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
             >
               {activeSkills.map((skill) => (
                 <span
                   key={skill}
-                  className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground"
+                  className="inline-flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground"
                 >
-                  {skill}
+                  <SkillIcon name={skill} size={22} />
+                  <span>{skill}</span>
                 </span>
               ))}
             </motion.div>

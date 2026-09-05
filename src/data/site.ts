@@ -18,18 +18,22 @@ export const site = {
   services: [
     {
       title: "Go backends",
+      tools: ["Go", "Postgres", "gRPC"],
       body: "Production microservices, REST and gRPC APIs, Postgres, and the layering that keeps a service maintainable after the third on-call rotation.",
     },
     {
       title: "Cloud on Azure",
+      tools: ["Azure", "Azure DevOps", "Linux"],
       body: "Provisioning, networking fundamentals, container workloads, and Azure DevOps delivery for services that have to stay up.",
     },
     {
       title: "Kubernetes & delivery",
+      tools: ["Kubernetes", "Docker", "Helm", "Jenkins"],
       body: "Docker, Helm, Jenkins, and CI/CD that move a change from commit to cluster with scanning and promotion gates.",
     },
     {
       title: "IaC & providers",
+      tools: ["Terraform", "Go", "Ansible"],
       body: "Terraform modules and custom Go providers: schema, REST clients, acceptance tests, and drift between desired and actual state.",
     },
   ],
