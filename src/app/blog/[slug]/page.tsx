@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { getAllPosts, getPost, getRelatedPosts } from "@/lib/posts";
-import Comments from "@/components/Comments";
+import CommentForm from "@/components/CommentForm";
 import SiteChrome from "@/components/SiteChrome";
 import { profile } from "@/data/profile";
 import { postHref, postsIndexHref } from "@/lib/site";
@@ -108,7 +108,7 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         )}
 
-        <Comments />
+        <CommentForm postTitle={post.title} postUrl={url} />
       </article>
     </SiteChrome>
   );

@@ -33,27 +33,10 @@ export default function PrivacyPage() {
 
           <h2>Comments</h2>
           <p>
-            Blog post comments are powered by{" "}
-            <a href="https://giscus.app" target="_blank" rel="noopener noreferrer">
-              giscus
-            </a>
-            , which stores comments as GitHub Discussions on the{" "}
-            <a
-              href="https://github.com/sarvodayaKumar/sarvodaya-portfolio"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              sarvodaya-portfolio
-            </a>{" "}
-            repository. Posting a comment requires a GitHub account and is subject to{" "}
-            <a
-              href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GitHub&apos;s own privacy policy
-            </a>
-            . No comment data is stored by this site directly.
+            The comment form on blog posts sends what you enter (name, optional email, and your
+            message) directly to {profile.name.split(" ")[0]}&apos;s email inbox via your own
+            email client. It is not posted publicly on this site, and no comment data is stored
+            on this site&apos;s servers.
           </p>
 
           <h2>Advertising</h2>
@@ -85,9 +68,8 @@ export default function PrivacyPage() {
 
           <h2>Cookies</h2>
           <p>
-            Aside from cookies set by giscus (GitHub) for comment authentication and, where
-            active, Google AdSense for ad personalization, this site does not set its own
-            tracking or analytics cookies.
+            Aside from cookies set by Google AdSense (where active) for ad personalization, this
+            site does not set its own tracking or analytics cookies.
           </p>
 
           <h2>Children&apos;s privacy</h2>
