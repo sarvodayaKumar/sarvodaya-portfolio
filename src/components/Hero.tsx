@@ -1,14 +1,18 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowDown } from "lucide-react";
 import { profile } from "@/data/profile";
 import { site } from "@/data/site";
+import { useIntro } from "./IntroContext";
 
 const HeroPortrait3D = dynamic(() => import("./HeroPortrait3D"), { ssr: false });
 
 export default function Hero() {
+  const { ready } = useIntro();
+
   return (
     <section className="relative z-10 flex min-h-[100svh] items-center px-6 pt-24 pb-12">
       <div className="mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-6">
@@ -17,7 +21,20 @@ export default function Hero() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         >
-          <HeroPortrait3D />
+          {ready ? (
+            <HeroPortrait3D />
+          ) : (
+            <div className="relative mx-auto h-[440px] w-full max-w-[440px] lg:h-[580px] lg:max-w-none">
+              <Image
+                src={profile.avatar}
+                alt=""
+                fill
+                priority
+                sizes="440px"
+                className="object-contain opacity-0"
+              />
+            </div>
+          )}
         </motion.div>
 
         <motion.div
@@ -50,6 +67,16 @@ export default function Hero() {
             >
               Experience
             </a>
+            {profile.links.instagram ? (
+              <a
+                href={profile.links.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm text-foreground hover:border-accent hover:text-accent"
+              >
+                Instagram
+              </a>
+            ) : null}
           </div>
         </motion.div>
       </div>

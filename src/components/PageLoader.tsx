@@ -1,98 +1,82 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import BootScreen from "./BootScreen";
+import { IntroContext } from "./IntroContext";
 
 export default function PageLoader({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(true);
-  const [progress, setProgress] = useState(8);
+  const [ready, setReady] = useState(false);
+  const [progress, setProgress] = useState(10);
 
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let cancelled = false;
+    let current = 10;
     document.body.style.overflow = "hidden";
 
-    if (reduce) {
-      setProgress(100);
-      document.body.style.overflow = "";
-      setVisible(false);
-      return;
-    }
-
-    let current = 8;
     const tick = window.setInterval(() => {
-      current = Math.min(current + (current > 78 ? 0.45 : 1.8), 90);
-      setProgress(Math.round(current));
-    }, 32);
+      current = Math.min(current + (current > 72 ? 0.7 : 2.2), 94);
+      if (!cancelled) setProgress(Math.round(current));
+    }, 40);
 
-    const minimum = new Promise<void>((resolve) => {
-      window.setTimeout(resolve, 1500);
-    });
-    const loaded = new Promise<void>((resolve) => {
-      if (document.readyState === "complete") {
-        resolve();
-        return;
-      }
-      window.addEventListener("load", () => resolve(), { once: true });
-    });
-
-    Promise.all([minimum, loaded]).then(() => {
+    const finish = () => {
+      if (cancelled) return;
       window.clearInterval(tick);
       setProgress(100);
       window.setTimeout(() => {
-        document.body.style.overflow = "";
+        if (cancelled) return;
         setVisible(false);
-      }, 480);
+        setReady(true);
+        document.body.style.overflow = "";
+      }, 380);
+    };
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      window.clearInterval(tick);
+      setProgress(100);
+      setVisible(false);
+      setReady(true);
+      document.body.style.overflow = "";
+      return;
+    }
+
+    const hold = new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 1400);
+    });
+    const fonts =
+      "fonts" in document ? document.fonts.ready.then(() => undefined) : Promise.resolve();
+    const cap = new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 2400);
     });
 
+    Promise.race([Promise.all([hold, fonts]).then(() => undefined), cap]).then(finish);
+
     return () => {
+      cancelled = true;
       window.clearInterval(tick);
       document.body.style.overflow = "";
     };
   }, []);
 
+  const intro = useMemo(() => ({ ready }), [ready]);
+
   return (
-    <>
+    <IntroContext.Provider value={intro}>
       <AnimatePresence>
         {visible && (
           <motion.div
+            className="boot-overlay"
             initial={{ opacity: 1 }}
-            exit={{ opacity: 0, y: -24 }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background"
-            aria-live="polite"
-            aria-busy="true"
-            role="status"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-card font-[family-name:var(--font-syne)] text-xl font-semibold text-foreground"
-            >
-              SK
-            </motion.div>
-            <p className="font-[family-name:var(--font-syne)] text-2xl text-foreground sm:text-3xl">
-              Sarvodaya Kumar
-            </p>
-            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.28em] text-accent">
-              Cloud backend developer
-            </p>
-            <div className="mt-10 w-56">
-              <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-                <span>Loading</span>
-                <span>{progress}%</span>
-              </div>
-              <div className="h-[2px] overflow-hidden rounded-full bg-border">
-                <motion.div
-                  className="h-full bg-accent"
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                />
-              </div>
-            </div>
+            <BootScreen progress={progress} />
           </motion.div>
         )}
       </AnimatePresence>
-      {children}
-    </>
+      <div aria-hidden={visible}>{children}</div>
+    </IntroContext.Provider>
   );
 }

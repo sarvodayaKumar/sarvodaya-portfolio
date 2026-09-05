@@ -288,6 +288,7 @@ function buildProfile(parsed, overrides) {
       email,
       github: overrides.links?.github || "",
       workGithub: overrides.links?.workGithub || "",
+      instagram: overrides.links?.instagram || "",
       phone: parsed.phone ? `tel:${parsed.phone.replace(/\s/g, "")}` : undefined,
     },
     currentFocus: {

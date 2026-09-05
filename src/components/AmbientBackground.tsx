@@ -4,11 +4,13 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { motion, useMotionValue, useSpring } from "framer-motion";
 import { useTheme } from "./ThemeProvider";
+import { useIntro } from "./IntroContext";
 
 const Scene3D = dynamic(() => import("./Scene3D"), { ssr: false });
 
 export default function AmbientBackground() {
   const { theme } = useTheme();
+  const { ready } = useIntro();
   const [enabled, setEnabled] = useState(false);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -51,7 +53,7 @@ export default function AmbientBackground() {
         }}
       />
       <div className="absolute inset-x-0 bottom-0 h-[50%] bg-horizon-grid opacity-40" />
-      {enabled && (
+      {enabled && ready && (
         <div className="absolute inset-0 opacity-80">
           <Scene3D />
         </div>

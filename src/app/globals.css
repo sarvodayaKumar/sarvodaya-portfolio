@@ -189,6 +189,145 @@ body {
   margin: 0.25rem 0;
 }
 
+.boot-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  isolation: isolate;
+  background: var(--background);
+}
+
+.boot-screen {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 100svh;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 2rem;
+}
+
+.boot-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.boot-ring,
+.boot-ring-delay {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: boot-pulse 1.6s ease-in-out infinite;
+}
+
+.boot-ring-delay {
+  animation-delay: 0.4s;
+  opacity: 0.45;
+}
+
+.boot-initials {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: var(--font-syne), serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.boot-name {
+  margin: 0;
+  font-family: var(--font-syne), serif;
+  font-size: clamp(1.6rem, 4vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.boot-role {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.boot-track-wrap {
+  width: 14.5rem;
+  margin-top: 2.5rem;
+}
+
+.boot-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  min-height: 1em;
+}
+
+.boot-track {
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.boot-track > span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform: scaleX(0.1);
+  transform-origin: left center;
+  transition: transform 0.2s ease-out;
+}
+
+.boot-track.is-indeterminate > span {
+  width: 38%;
+  animation: boot-slide 1.15s ease-in-out infinite;
+  transform: none;
+}
+
+@keyframes boot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.15;
+  }
+}
+
+@keyframes boot-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -196,7 +335,10 @@ body {
 
   .ken-burns,
   .portrait-sweep,
-  [data-animate] {
+  [data-animate],
+  .boot-ring,
+  .boot-ring-delay,
+  .boot-track.is-indeterminate > span {
     animation: none !important;
   }
 }

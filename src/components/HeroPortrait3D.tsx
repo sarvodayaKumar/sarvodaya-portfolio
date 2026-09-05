@@ -4,184 +4,143 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { ContactShadows, useTexture } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { portraitFrames } from "@/data/portraits";
 import { useTheme } from "./ThemeProvider";
-import { profile } from "@/data/profile";
 
 const vertex = `
 varying vec2 vUv;
+uniform sampler2D uFront;
+uniform float uTime;
+
 void main() {
   vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vec3 color = texture2D(uFront, uv).rgb;
+  float luma = dot(color, vec3(0.299, 0.587, 0.114));
+  float face = smoothstep(0.32, 0.52, uv.y);
+  float depth = smoothstep(0.18, 0.72, luma) * 0.28 * face;
+  float breath = sin(uTime * 1.15) * 0.012;
+  vec3 pos = position;
+  pos.z += depth + breath * face;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
 }
 `;
 
 const fragment = `
-uniform sampler2D uMap;
+uniform sampler2D uFront;
+uniform sampler2D uLeft;
+uniform sampler2D uRight;
+uniform float uLookX;
 uniform float uTime;
-uniform vec3 uAccent;
 varying vec2 vUv;
 
 void main() {
-  vec2 uv = vUv;
-  float wave = sin(uTime * 1.4 + uv.y * 8.0) * 0.004;
-  float scan = 0.08 * (0.5 + 0.5 * sin((uv.y * 140.0) - uTime * 8.0));
-  float band = smoothstep(0.04, 0.0, abs(fract(uv.y - uTime * 0.18) - 0.12));
-  vec2 rUv = uv + vec2(0.004 + wave, 0.0);
-  vec2 bUv = uv - vec2(0.004 + wave, 0.0);
-  vec3 color = vec3(
-    texture2D(uMap, rUv).r,
-    texture2D(uMap, uv).g,
-    texture2D(uMap, bUv).b
-  );
-  color += uAccent * (scan * 0.55 + band * 0.35);
-  color *= 0.92 + 0.08 * sin(uTime * 2.2);
-  gl_FragColor = vec4(color, 1.0);
+  vec4 front = texture2D(uFront, vUv);
+  vec4 left = texture2D(uLeft, vUv);
+  vec4 right = texture2D(uRight, vUv);
+  float leftAmt = smoothstep(0.04, 0.92, max(-uLookX, 0.0));
+  float rightAmt = smoothstep(0.04, 0.92, max(uLookX, 0.0));
+  vec3 color = mix(front.rgb, left.rgb, leftAmt);
+  color = mix(color, right.rgb, rightAmt);
+
+  vec2 p = (vUv - vec2(0.5, 0.4)) / vec2(0.36, 0.5);
+  float mask = 1.0 - smoothstep(0.68, 1.04, length(p));
+  mask *= smoothstep(0.0, 0.1, vUv.y);
+  mask *= smoothstep(1.0, 0.9, vUv.y);
+  mask *= smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x);
+
+  if (mask < 0.04) discard;
+
+  float luma = dot(color, vec3(0.299, 0.587, 0.114));
+  color *= 0.78 + luma * 0.38;
+  gl_FragColor = vec4(color, mask);
 }
 `;
 
-function useHoloMaterial(texture: THREE.Texture, accent: string) {
+function usePortraitMaterial(maps: THREE.Texture[]) {
   return useMemo(() => {
     const mat = new THREE.ShaderMaterial({
       uniforms: {
-        uMap: { value: texture },
+        uFront: { value: maps[0] },
+        uLeft: { value: maps[1] ?? maps[0] },
+        uRight: { value: maps[2] ?? maps[0] },
+        uLookX: { value: 0 },
         uTime: { value: 0 },
-        uAccent: { value: new THREE.Color(accent) },
       },
       vertexShader: vertex,
       fragmentShader: fragment,
+      transparent: true,
+      depthWrite: true,
     });
     return mat;
-  }, [texture, accent]);
+  }, [maps]);
 }
 
-function PortraitFigure({ dark }: { dark: boolean }) {
+function isOnPortrait(uv: THREE.Vector2) {
+  const px = (uv.x - 0.5) / 0.36;
+  const py = (uv.y - 0.4) / 0.5;
+  return px * px + py * py <= 1;
+}
+
+function PortraitFigure() {
   const group = useRef<THREE.Group>(null);
-  const holo = useRef<THREE.Mesh>(null);
-  const ghost = useRef<THREE.Mesh>(null);
-  const scan = useRef<THREE.Mesh>(null);
-  const target = useRef({ x: 0, y: 0 });
-  const texture = useTexture(profile.avatar);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-
-  const accent = dark ? "#2dd4bf" : "#0f766e";
-  const holoMat = useHoloMaterial(texture, accent);
-  const ghostMat = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        opacity: 0.22,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    [texture]
-  );
-  const frame = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: dark ? "#1c2129" : "#ece7dc",
-        metalness: 0.35,
-        roughness: 0.38,
-      }),
-    [dark]
-  );
-  const photo = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        map: texture,
-        roughness: 0.45,
-        metalness: 0.06,
-      }),
-    [texture]
-  );
-
-  const dust = useMemo(() => {
-    const positions = new Float32Array(240);
-    for (let i = 0; i < 80; i += 1) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 1.15 + Math.random() * 0.7;
-      positions[i * 3] = Math.cos(a) * r;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 2.6;
-      positions[i * 3 + 2] = Math.sin(a) * r * 0.45;
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    return geo;
-  }, []);
+  const pointer = useRef({ x: 0, y: 0 });
+  const hovered = useRef(false);
+  const textures = useTexture(portraitFrames);
+  const maps = useMemo(() => {
+    const list = (Array.isArray(textures) ? textures : [textures]) as THREE.Texture[];
+    list.forEach((texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 8;
+    });
+    return list;
+  }, [textures]);
+  const material = usePortraitMaterial(maps);
 
   useEffect(() => {
-    const onMove = (event: MouseEvent) => {
-      target.current.x = (event.clientX / window.innerWidth - 0.5) * 0.5;
-      target.current.y = (event.clientY / window.innerHeight - 0.5) * 0.26;
-    };
-    window.addEventListener("mousemove", onMove, { passive: true });
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
+    return () => material.dispose();
+  }, [material]);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    holoMat.uniforms.uTime.value = t;
-    if (group.current) {
-      group.current.rotation.y += (target.current.x - group.current.rotation.y) * 0.07;
-      group.current.rotation.x += (-target.current.y - group.current.rotation.x) * 0.07;
-      group.current.position.y = Math.sin(t * 0.9) * 0.08;
+    if (!hovered.current) {
+      pointer.current.x += (0 - pointer.current.x) * 0.12;
+      pointer.current.y += (0 - pointer.current.y) * 0.12;
     }
-    if (holo.current) {
-      holo.current.position.z = 0.12 + Math.sin(t * 1.6) * 0.02;
-    }
-    if (ghost.current) {
-      ghost.current.position.x = Math.sin(t * 1.1) * 0.05;
-      ghost.current.position.z = -0.28;
-      const mat = ghost.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.12 + 0.1 * (0.5 + 0.5 * Math.sin(t * 2.4));
-    }
-    if (scan.current) {
-      scan.current.position.y = Math.sin(t * 1.15) * 1.15;
-    }
+    const x = pointer.current.x;
+    const y = pointer.current.y;
+    material.uniforms.uTime.value = t;
+    material.uniforms.uLookX.value += (x - material.uniforms.uLookX.value) * 0.08;
+    state.gl.domElement.style.cursor = hovered.current ? "pointer" : "auto";
+
+    if (!group.current) return;
+    group.current.rotation.y += (x * 0.58 - group.current.rotation.y) * 0.1;
+    group.current.rotation.x += (-y * 0.24 - group.current.rotation.x) * 0.1;
+    group.current.position.x += (x * 0.28 - group.current.position.x) * 0.08;
+    group.current.position.y += (Math.sin(t * 1.05) * 0.05 + y * 0.16 - group.current.position.y) * 0.08;
+    group.current.position.z = Math.sin(t * 0.7) * 0.05;
   });
 
   return (
     <group ref={group}>
-      <mesh position={[0, 0, -0.1]}>
-        <torusGeometry args={[1.68, 0.016, 12, 80]} />
-        <meshStandardMaterial
-          color={accent}
-          emissive={accent}
-          emissiveIntensity={0.45}
-          metalness={0.6}
-          roughness={0.25}
-        />
+      <mesh
+        onPointerMove={(event) => {
+          event.stopPropagation();
+          const uv = event.uv;
+          if (!uv || !isOnPortrait(uv)) {
+            hovered.current = false;
+            return;
+          }
+          hovered.current = true;
+          pointer.current.x = (uv.x - 0.5) * 2;
+          pointer.current.y = (uv.y - 0.5) * 2;
+        }}
+        onPointerOut={() => {
+          hovered.current = false;
+        }}
+      >
+        <planeGeometry args={[2.55, 3.35, 64, 80]} />
+        <primitive object={material} attach="material" />
       </mesh>
-
-      <mesh material={[frame, frame, frame, frame, photo, frame]}>
-        <boxGeometry args={[2.02, 2.68, 0.14]} />
-      </mesh>
-
-      <mesh ref={holo} position={[0, 0, 0.12]}>
-        <planeGeometry args={[1.98, 2.64]} />
-        <primitive object={holoMat} attach="material" />
-      </mesh>
-
-      <mesh ref={ghost} scale={[1.08, 1.08, 1]}>
-        <planeGeometry args={[1.98, 2.64]} />
-        <primitive object={ghostMat} attach="material" />
-      </mesh>
-
-      <mesh ref={scan} position={[0, 0, 0.14]}>
-        <planeGeometry args={[1.98, 0.045]} />
-        <meshBasicMaterial color={accent} transparent opacity={0.45} />
-      </mesh>
-
-      <points geometry={dust}>
-        <pointsMaterial
-          size={0.028}
-          color={accent}
-          transparent
-          opacity={0.7}
-          sizeAttenuation
-        />
-      </points>
     </group>
   );
 }
@@ -191,31 +150,46 @@ export default function HeroPortrait3D() {
   const dark = theme === "dark";
 
   return (
-    <div className="relative mx-auto h-[440px] w-full max-w-[440px] lg:h-[580px] lg:max-w-none">
+    <div className="relative mx-auto h-[460px] w-full max-w-[520px] lg:h-[620px] lg:max-w-none">
       <Canvas
-        className="h-full w-full"
+        className="h-full w-full touch-none"
         dpr={[1, 1.75]}
         gl={{ alpha: true, antialias: true }}
-        camera={{ position: [0, 0, 4.4], fov: 32 }}
+        camera={{ position: [0, 0.12, 3.55], fov: 34 }}
       >
-        <ambientLight intensity={dark ? 0.5 : 0.8} />
-        <spotLight
-          position={[3.5, 4.5, 6]}
-          angle={0.45}
-          penumbra={0.7}
-          intensity={dark ? 48 : 30}
-          color={dark ? "#e2e8f0" : "#fff7ed"}
+        <hemisphereLight
+          color={dark ? "#9aa7b8" : "#f4efe6"}
+          groundColor={dark ? "#0b0e13" : "#d7d0c4"}
+          intensity={dark ? 0.55 : 0.85}
         />
-        <pointLight position={[-3, -1, 3]} intensity={dark ? 14 : 9} color={dark ? "#2dd4bf" : "#0f766e"} />
+        <spotLight
+          position={[2.4, 2.8, 5.2]}
+          angle={0.55}
+          penumbra={0.85}
+          intensity={dark ? 55 : 38}
+          color={dark ? "#f3efe6" : "#fffaf2"}
+        />
+        <pointLight
+          position={[-2.8, 0.6, 2.4]}
+          intensity={dark ? 10 : 7}
+          color={dark ? "#7dd3c7" : "#5f8f88"}
+        />
+        <spotLight
+          position={[-1.6, 2.2, -1.2]}
+          angle={0.7}
+          penumbra={1}
+          intensity={dark ? 18 : 10}
+          color={dark ? "#2dd4bf" : "#0f766e"}
+        />
         <Suspense fallback={null}>
-          <PortraitFigure dark={dark} />
+          <PortraitFigure />
         </Suspense>
         <ContactShadows
-          position={[0, -1.58, 0]}
-          opacity={dark ? 0.38 : 0.2}
-          scale={7}
-          blur={2.6}
-          far={4}
+          position={[0, -1.72, 0]}
+          opacity={dark ? 0.42 : 0.22}
+          scale={8}
+          blur={2.8}
+          far={4.5}
         />
       </Canvas>
     </div>

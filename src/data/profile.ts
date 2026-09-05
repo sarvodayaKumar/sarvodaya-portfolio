@@ -6,7 +6,7 @@ export const profile = {
   title: "Cloud Backend Developer",
   specialty: "Bangalore, Karnataka · Golang (Advanced) · C (Intermediate) · Docker",
   tagline: "I design and ship production backends on Azure — Go services, Kubernetes, and Terraform.",
-  avatar: "/profile.png",
+  avatar: "/portraits/front.png",
   experienceYears: "5+",
   status: "Open to collaboration",
   resumeUrl: "/resume.pdf",
@@ -16,6 +16,7 @@ export const profile = {
     email: "sarvodaya.kumar@outlook.com",
     github: "https://github.com/sarvodayaKumar",
     workGithub: "https://github.com/sarvodaya-kumar-26",
+    instagram: "https://www.instagram.com/_s.a.r.v.o_/",
     phone: "tel:+91-9776159842"
   },
   currentFocus: {
