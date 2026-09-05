@@ -7,8 +7,7 @@
   "links": {
     "linkedin": "https://linkedin.com/in/sarvodaya",
     "github": "https://github.com/sarvodayaKumar",
-    "workGithub": "https://github.com/sarvodaya-kumar-26",
-    "instagram": "https://www.instagram.com/_s.a.r.v.o_/"
+    "workGithub": "https://github.com/sarvodaya-kumar-26"
   },
   "openSourceAbout": "Alongside product work, I contribute upstream in Go to Sensu (observability engine, core libraries, etcd integration, packaging) and Aqua Security's Terraform provider — resources, REST clients, and acceptance tests.",
   "openSource": [

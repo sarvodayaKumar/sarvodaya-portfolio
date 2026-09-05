@@ -16,7 +16,6 @@ export const profile = {
     email: "sarvodaya.kumar@outlook.com",
     github: "https://github.com/sarvodayaKumar",
     workGithub: "https://github.com/sarvodaya-kumar-26",
-    instagram: "https://www.instagram.com/_s.a.r.v.o_/",
     phone: "tel:+91-9776159842"
   },
   currentFocus: {

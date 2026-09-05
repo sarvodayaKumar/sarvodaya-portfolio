@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Mail, Phone, Send } from "lucide-react";
 import { profile } from "@/data/profile";
 import { site } from "@/data/site";
-import { GithubIcon, InstagramIcon, LinkedInIcon } from "./BrandIcons";
+import { GithubIcon, LinkedInIcon } from "./BrandIcons";
 import GlowCard from "./GlowCard";
 import ResumeLink from "./ResumeLink";
 import SectionWrapper from "./SectionWrapper";
@@ -13,9 +13,6 @@ const contactLinks = [
   { icon: LinkedInIcon, label: "LinkedIn", href: profile.links.linkedin },
   { icon: Mail, label: "Email", href: `mailto:${profile.links.email}` },
   { icon: GithubIcon, label: "GitHub", href: profile.links.github },
-  ...(profile.links.instagram
-    ? [{ icon: InstagramIcon, label: "Instagram", href: profile.links.instagram }]
-    : []),
   ...(profile.links.phone
     ? [{ icon: Phone, label: "Phone", href: profile.links.phone }]
     : []),
