@@ -4,7 +4,6 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { getAllPosts, getPost, getRelatedPosts } from "@/lib/posts";
-import AdSlot from "@/components/AdSlot";
 import Comments from "@/components/Comments";
 import SiteChrome from "@/components/SiteChrome";
 import { profile } from "@/data/profile";
@@ -84,10 +83,6 @@ export default async function BlogPostPage({ params }: Props) {
         {post.summary && <p className="mt-4 text-lg text-muted">{post.summary}</p>}
         <div className="blog-prose mt-10">
           <ReactMarkdown>{post.content}</ReactMarkdown>
-        </div>
-
-        <div className="mt-10">
-          <AdSlot slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_IN_ARTICLE} />
         </div>
 
         {related.length > 0 && (
