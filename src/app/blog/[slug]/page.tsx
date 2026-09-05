@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { getAllPosts, getPost } from "@/lib/posts";
+import Comments from "@/components/Comments";
 import SiteChrome from "@/components/SiteChrome";
 import { postsIndexHref } from "@/lib/site";
 
@@ -46,6 +47,7 @@ export default async function BlogPostPage({ params }: Props) {
         <div className="blog-prose mt-10">
           <ReactMarkdown>{post.content}</ReactMarkdown>
         </div>
+        <Comments />
       </article>
     </SiteChrome>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 
 type Theme = "light" | "dark";
 
@@ -9,7 +9,7 @@ const ThemeContext = createContext<{
   setTheme: (theme: Theme) => void;
   toggle: () => void;
 }>({
-  theme: "dark",
+  theme: "light",
   setTheme: () => {},
   toggle: () => {},
 });
@@ -20,15 +20,13 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem("theme") as Theme | null;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const next = stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";
-    setThemeState(next);
-    applyTheme(next);
-  }, []);
+  // The inline script in layout.tsx already applies the right theme class to
+  // <html> before hydration; read it back so this never flashes the wrong theme.
+  const [theme, setThemeState] = useState<Theme>(() =>
+    typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+      ? "dark"
+      : "light"
+  );
 
   const value = useMemo(
     () => ({

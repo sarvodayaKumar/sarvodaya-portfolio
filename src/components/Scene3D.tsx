@@ -1,13 +1,12 @@
 "use client";
 
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, Stars } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useTheme } from "./ThemeProvider";
 
 function CameraRig() {
-  const { camera } = useThree();
   const target = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -19,7 +18,7 @@ function CameraRig() {
     return () => window.removeEventListener("mousemove", onMove);
   }, []);
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
     camera.position.x += (target.current.x - camera.position.x) * 0.035;
     camera.position.y += (target.current.y - camera.position.y) * 0.035;
     camera.position.z = 6.2;
@@ -89,17 +88,23 @@ function WireTorus({
   );
 }
 
+// Computed once at module load, not during render — Math.random() during
+// render trips React's purity rule, and this field never needs to change.
+const DUST_POSITIONS = (() => {
+  const positions = new Float32Array(900);
+  for (let i = 0; i < 300; i += 1) {
+    positions[i * 3] = (Math.random() - 0.5) * 18;
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 12;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+  }
+  return positions;
+})();
+
 function Dust() {
   const points = useRef<THREE.Points>(null);
   const geometry = useMemo(() => {
-    const positions = new Float32Array(900);
-    for (let i = 0; i < 300; i += 1) {
-      positions[i * 3] = (Math.random() - 0.5) * 18;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 12;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-    }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("position", new THREE.BufferAttribute(DUST_POSITIONS, 3));
     return geo;
   }, []);
 
