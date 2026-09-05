@@ -3,6 +3,7 @@ title: "API-key auth in a Terraform provider: implementing it without leaking th
 date: 2026-09-03
 summary: Configuring authentication is the first thing a provider does and the easiest place to accidentally write a secret into state or logs.
 published: true
+tags: [terraform, go]
 ---
 
 Every Terraform provider needs to authenticate to the API it manages, and API-key auth is the simplest form of it — which makes it easy to underestimate how many ways there are to accidentally leak that key once it's flowing through provider configuration, HTTP clients, and Terraform's own logging.

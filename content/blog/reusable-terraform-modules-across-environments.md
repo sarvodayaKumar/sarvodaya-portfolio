@@ -3,6 +3,7 @@ title: Structuring reusable Terraform modules across environments
 date: 2026-08-22
 summary: A module used in three environments and copy-pasted three times isn't reusable, it's forked. Variables, outputs, and workspaces done right.
 published: true
+tags: [terraform]
 ---
 
 A Terraform module is reusable the moment a second environment can consume it without editing its source — the instant someone opens the module's `.tf` files to change a value for a specific environment, it's stopped being a shared module and started being three environment-specific copies that happen to still look identical today.

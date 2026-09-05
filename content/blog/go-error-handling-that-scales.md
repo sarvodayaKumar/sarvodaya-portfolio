@@ -3,6 +3,7 @@ title: Error handling patterns in Go that survive past the happy path
 date: 2026-08-18
 summary: if err != nil is easy to write and easy to make useless. Patterns for wrapping, sentinel errors, and when to panic instead.
 published: true
+tags: [go]
 ---
 
 Go's error handling gets criticized for being verbose, but verbose isn't the problem. The problem is that `if err != nil { return err }` on every line gives you a stack trace with no story — you know something failed three layers down, but not what the caller was trying to do when it happened.

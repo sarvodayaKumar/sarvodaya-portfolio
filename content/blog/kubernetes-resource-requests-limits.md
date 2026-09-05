@@ -3,6 +3,7 @@ title: "Kubernetes resource requests and limits: getting them right without gues
 date: 2026-07-03
 summary: Requests and limits aren't the same knob. Getting them wrong in either direction has a specific, predictable failure mode.
 published: true
+tags: [kubernetes]
 ---
 
 Requests and limits get treated as one setting with two numbers, but they control two different things — requests drive scheduling, limits drive throttling and eviction. Confusing them is how a service ends up either starved of CPU it was promised or evicted for using memory it was never actually given a hard ceiling on.

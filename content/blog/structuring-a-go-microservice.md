@@ -3,6 +3,7 @@ title: "Structuring a Go microservice: packages, layering, and the god-package t
 date: 2026-07-22
 summary: Go doesn't force an architecture on you, which means a service either gets a deliberate shape or slowly turns into one giant package.
 published: true
+tags: [go]
 ---
 
 Go's lack of opinions about project layout is a feature until a service has six engineers touching it and every new type lands in the same `models` package because that's where the last five went. A structure that scales isn't about following a specific template — it's about making the dependency direction obvious from the folder layout alone.

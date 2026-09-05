@@ -3,6 +3,7 @@ title: Acceptance testing Terraform providers with terraform-plugin-testing
 date: 2026-07-14
 summary: Unit tests can't catch a provider bug that only shows up against the real API. Acceptance tests run the actual lifecycle against real infrastructure.
 published: true
+tags: [terraform, go]
 ---
 
 A provider resource can pass every unit test and still be broken, because unit tests mock the API client — they prove your Go code calls the mock correctly, not that the mock reflects what the real API actually does. Acceptance tests close that gap by running `plan` → `apply` → `plan` (again, to verify no drift) → `destroy` against the real API.

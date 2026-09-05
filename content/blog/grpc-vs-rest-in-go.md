@@ -3,6 +3,7 @@ title: "gRPC vs REST in Go: picking the right one for internal services"
 date: 2026-08-27
 summary: REST won't disappear and gRPC isn't automatically faster. Where each one actually wins when you're wiring up Go microservices.
 published: true
+tags: [go]
 ---
 
 Every "gRPC vs REST" post eventually says "it depends," and then doesn't say on what. Here's what actually moves the decision when you're building Go services that talk to each other.

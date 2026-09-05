@@ -3,6 +3,7 @@ title: Structuring Helm charts for multiple environments without duplicating the
 date: 2026-08-02
 summary: One chart, per-environment values files, and the templating discipline that keeps staging and production from silently drifting apart.
 published: true
+tags: [kubernetes]
 ---
 
 The failure mode that shows up first with Helm isn't a templating bug — it's three copies of a chart, one per environment, that were identical on day one and have quietly diverged ever since. Nobody decided to fork it; someone just needed a slightly different replica count in staging and copy-pasted the whole chart to change one line.

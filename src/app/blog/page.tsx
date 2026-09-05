@@ -8,7 +8,21 @@ import { postHref } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Blog | Sarvodaya Kumar",
   description: "Writing on Go, Terraform, Kubernetes, and platform engineering.",
-  alternates: { canonical: "https://blog.sarvodaya.dev" },
+  alternates: {
+    canonical: "https://blog.sarvodaya.dev",
+    types: { "application/rss+xml": "https://blog.sarvodaya.dev/rss.xml" },
+  },
+  openGraph: {
+    type: "website",
+    title: "Blog | Sarvodaya Kumar",
+    description: "Writing on Go, Terraform, Kubernetes, and platform engineering.",
+    url: "https://blog.sarvodaya.dev",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Blog | Sarvodaya Kumar",
+    description: "Writing on Go, Terraform, Kubernetes, and platform engineering.",
+  },
 };
 
 export default async function BlogIndexPage() {

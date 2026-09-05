@@ -17,6 +17,9 @@ export default async function Footer() {
           <Link href={blogHref} className="hover:text-foreground">
             Blog
           </Link>
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
           <span className="max-w-md text-center sm:text-right">{site.role} — Go, Azure, Kubernetes, Terraform.</span>
         </div>
       </div>

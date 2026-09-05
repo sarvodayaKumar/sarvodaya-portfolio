@@ -3,6 +3,7 @@ title: Table-driven tests in Go that actually catch regressions
 date: 2026-09-05
 summary: The table-driven pattern is easy to write badly — a table of happy-path inputs that never exercises the code that actually breaks in production.
 published: true
+tags: [go]
 ---
 
 Every Go codebase past a certain size has table-driven tests, and a lot of them share the same weakness: the table is full of cases that all take the same path through the function. Passing tests, near-zero coverage of the branches that matter.

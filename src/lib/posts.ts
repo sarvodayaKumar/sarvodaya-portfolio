@@ -10,6 +10,7 @@ export type PostMeta = {
   date: string;
   summary: string;
   published: boolean;
+  tags: string[];
 };
 
 export type Post = PostMeta & {
@@ -33,6 +34,7 @@ function parseFile(filename: string): Post {
     date: formatDate(data.date),
     summary: String(data.summary ?? ""),
     published: data.published !== false,
+    tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
     content,
   };
 }
@@ -53,6 +55,15 @@ export function getAllPosts(includeDrafts = false): PostMeta[] {
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     .map(({ content: _content, ...meta }) => meta);
+}
+
+export function getRelatedPosts(post: PostMeta, limit = 3): PostMeta[] {
+  const others = getAllPosts().filter((p) => p.slug !== post.slug);
+  const scored = others
+    .map((p) => ({ post: p, shared: p.tags.filter((t) => post.tags.includes(t)).length }))
+    .filter((entry) => entry.shared > 0)
+    .sort((a, b) => b.shared - a.shared || (a.post.date < b.post.date ? 1 : -1));
+  return scored.slice(0, limit).map((entry) => entry.post);
 }
 
 export function getPost(slug: string): Post | null {

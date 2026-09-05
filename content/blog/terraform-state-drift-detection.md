@@ -3,6 +3,7 @@ title: Terraform state drift, detecting it before it detects you
 date: 2026-08-10
 summary: State drift isn't a Terraform bug, it's what happens when reality and the state file disagree. Catching it early is a process problem, not a tooling one.
 published: true
+tags: [terraform]
 ---
 
 Drift happens the moment anyone or anything changes infrastructure outside Terraform — a manual console fix during an incident, another automation tool, a cloud provider auto-scaling a value Terraform also manages. The state file doesn't know, and it keeps believing what it last wrote until something forces it to check.

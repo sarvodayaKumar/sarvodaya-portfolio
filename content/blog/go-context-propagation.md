@@ -3,6 +3,7 @@ title: Context propagation and cancellation in Go services
 date: 2026-06-12
 summary: context.Context is easy to thread through a call stack and easy to misuse. Cancellation, deadlines, and what not to put in context.Value.
 published: true
+tags: [go]
 ---
 
 `context.Context` shows up as the first argument in almost every function signature in a Go service, which makes it tempting to treat it as a junk drawer. It has exactly two jobs: carrying cancellation/deadlines, and carrying request-scoped values that genuinely cross API boundaries — a trace ID, not your business logic.

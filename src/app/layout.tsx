@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Syne } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import PageLoader from "@/components/PageLoader";
+
+// Set once your AdSense application is approved — this stays inactive until then.
+const ADSENSE_CLIENT_ID = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
 const inter = Inter({
   variable: "--font-inter",
@@ -58,6 +62,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             __html: `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark';document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();`,
           }}
         />
+        {ADSENSE_CLIENT_ID ? (
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        ) : null}
       </head>
       <body className="min-h-full bg-background text-foreground antialiased">
         <ThemeProvider>

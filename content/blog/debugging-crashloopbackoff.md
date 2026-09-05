@@ -3,6 +3,7 @@ title: A field checklist for debugging CrashLoopBackOff
 date: 2026-09-01
 summary: The status tells you the pod is restarting, not why. A practical order of operations for finding the actual cause.
 published: true
+tags: [kubernetes]
 ---
 
 `CrashLoopBackOff` isn't an error — it's Kubernetes telling you it gave up restarting a container that keeps exiting, with the backoff delay growing each time. The actual cause is somewhere in the container's exit, and the fastest path to it is a fixed order of checks, not guessing.

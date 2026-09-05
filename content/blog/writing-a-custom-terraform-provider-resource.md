@@ -3,6 +3,7 @@ title: "Writing a custom Terraform provider resource in Go: the CRUD lifecycle"
 date: 2026-06-25
 summary: A Terraform resource is a state machine over an API. Mapping Create, Read, Update, and Delete correctly is most of the work.
 published: true
+tags: [terraform, go]
 ---
 
 A Terraform provider resource looks like boilerplate the first time you write one — four functions and a schema — but almost every real bug in a provider comes from getting the contract of those four functions subtly wrong, not from the schema itself.
