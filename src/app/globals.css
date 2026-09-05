@@ -2,8 +2,8 @@
 
 :root {
   --background: #f6f3ec;
-  --foreground: #16181d;
-  --muted: #5b616b;
+  --foreground: #0d0e11;
+  --muted: #454a52;
   --card: rgba(255, 255, 255, 0.78);
   --border: rgba(22, 24, 29, 0.1);
   --accent: #0f766e;
@@ -15,8 +15,8 @@
 
 html.dark {
   --background: #0b0e13;
-  --foreground: #eeeae3;
-  --muted: #9aa1ab;
+  --foreground: #f5f3ee;
+  --muted: #b4bac3;
   --card: rgba(18, 22, 30, 0.72);
   --border: rgba(238, 234, 227, 0.1);
   --accent: #2dd4bf;
