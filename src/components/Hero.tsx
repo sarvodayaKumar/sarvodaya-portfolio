@@ -14,7 +14,7 @@ export default function Hero() {
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="relative flex justify-center lg:justify-end"
+          className="relative"
         >
           <div className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-accent/20 blur-[100px]" />
           <Portrait />
@@ -37,7 +37,7 @@ export default function Hero() {
               </span>
             ) : null}
           </div>
-          <h1 className="mt-4 font-[family-name:var(--font-syne)] text-5xl font-semibold tracking-tight text-foreground sm:text-6xl lg:text-[4.6rem] lg:leading-[1.02]">
+          <h1 className="mt-4 whitespace-nowrap font-[family-name:var(--font-syne)] text-[clamp(1.75rem,8vw,3rem)] font-semibold tracking-tight text-foreground sm:text-6xl lg:leading-[1.02]">
             {profile.name}
           </h1>
           <p className="mt-4 text-xl text-accent sm:text-2xl">{site.role}</p>
