@@ -13,7 +13,8 @@
     "lint": "eslint",
     "resume:sync": "node scripts/sync-resume.mjs",
     "resume:watch": "node scripts/sync-resume.mjs --watch",
-    "db:init-comments": "node scripts/init-comments-db.mjs"
+    "db:init-comments": "node scripts/init-comments-db.mjs",
+    "blog:generate": "node scripts/generate-daily-post.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -29,6 +30,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
