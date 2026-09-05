@@ -33,10 +33,11 @@ export default function PrivacyPage() {
 
           <h2>Comments</h2>
           <p>
-            The comment form on blog posts sends what you enter (name, optional email, and your
-            message) directly to {profile.name.split(" ")[0]}&apos;s email inbox via your own
-            email client. It is not posted publicly on this site, and no comment data is stored
-            on this site&apos;s servers.
+            The comment form on blog posts stores the name and message you submit in this site&apos;s
+            database, along with the IP address of the request (used only to apply a posting rate
+            limit and deter spam). Comments are reviewed before appearing publicly, and appear
+            with your submitted name attached. Don&apos;t include anything in a comment you don&apos;t
+            want visible to any visitor of this site.
           </p>
 
           <h2>Advertising</h2>

@@ -12,9 +12,11 @@
     "start": "next start",
     "lint": "eslint",
     "resume:sync": "node scripts/sync-resume.mjs",
-    "resume:watch": "node scripts/sync-resume.mjs --watch"
+    "resume:watch": "node scripts/sync-resume.mjs --watch",
+    "db:init-comments": "node scripts/init-comments-db.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "framer-motion": "^13.2.0",
