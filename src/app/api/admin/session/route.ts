@@ -20,6 +20,10 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// PUBLIC AUTHENTICATION POLICY: GET reveals only whether this browser has a valid
+// session; POST is same-origin credential verification with persistent throttling;
+// DELETE is same-origin logout. No admin data is exposed by this endpoint.
+
 const COOKIE_NAME = "admin_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const AUTH_WINDOW_SECONDS = 15 * 60;
