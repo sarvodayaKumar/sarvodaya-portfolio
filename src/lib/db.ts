@@ -235,14 +235,17 @@ export async function getAdminTotpCredential(): Promise<{ encryptedSecret: strin
 }
 
 /** Replace an unconfirmed enrollment secret; it grants no MFA assurance until confirmed. */
-export async function savePendingAdminTotpSecret(encryptedSecret: string): Promise<void> {
+export async function savePendingAdminTotpSecret(encryptedSecret: string): Promise<boolean> {
   const sql = getSql();
-  await sql`
-    INSERT INTO admin_mfa_credentials (admin_id, encrypted_secret, enabled, last_used_counter)
-    VALUES ('primary', ${encryptedSecret}, false, -1)
+  const rows = await sql`
+    INSERT INTO admin_mfa_credentials (admin_id, encrypted_secret, enabled, last_used_counter, pending_expires_at)
+    VALUES ('primary', ${encryptedSecret}, false, -1, now() + INTERVAL '10 minutes')
     ON CONFLICT (admin_id) DO UPDATE SET encrypted_secret = EXCLUDED.encrypted_secret,
-      enabled = false, last_used_counter = -1, updated_at = now()
+      last_used_counter = -1, pending_expires_at = EXCLUDED.pending_expires_at, updated_at = now()
+    WHERE admin_mfa_credentials.enabled = false
+    RETURNING admin_id
   `;
+  return rows.length === 1;
 }
 
 /** Activate enrollment only after the user proves possession of the authenticator. */
@@ -250,8 +253,10 @@ export async function enableAdminTotp(counter: number): Promise<boolean> {
   if (!Number.isSafeInteger(counter) || counter < 0) return false;
   const sql = getSql();
   const rows = await sql`
-    UPDATE admin_mfa_credentials SET enabled = true, last_used_counter = ${counter}, updated_at = now()
-    WHERE admin_id = 'primary' AND enabled = false RETURNING admin_id
+    UPDATE admin_mfa_credentials
+    SET enabled = true, last_used_counter = ${counter}, pending_expires_at = NULL, updated_at = now()
+    WHERE admin_id = 'primary' AND enabled = false AND pending_expires_at > now()
+    RETURNING admin_id
   `;
   return rows.length === 1;
 }
