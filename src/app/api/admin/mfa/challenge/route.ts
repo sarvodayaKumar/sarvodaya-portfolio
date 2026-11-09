@@ -35,8 +35,9 @@ export async function POST(request: NextRequest) {
   const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
-  const throttle = await getAdminAuthAttempts(clientKey, accountKey, 15 * 60);
-  if (throttle.clientAttempts >= 5 || throttle.accountAttempts >= 5) {
+  const clientAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
+  const accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
+  if (clientAttempts > 5 || accountAttempts > 5) {
     return NextResponse.json({ error: "MFA verification temporarily locked. Sign in again later." }, {
       status: 429, headers: { ...HEADERS, "Retry-After": "900" },
     });
@@ -58,9 +59,7 @@ export async function POST(request: NextRequest) {
   if (counter === null) {
     await auditAdminAuthEvent(request, "totp_challenge", false);
     const attempts = await recordAdminMfaChallengeFailure(challengeHash);
-    const ipAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
-    const accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
-    const locked = attempts >= 5 || ipAttempts > 5 || accountAttempts > 5;
+    const locked = attempts >= 5;
     const response = NextResponse.json({ error: locked ? "MFA verification temporarily locked. Sign in again later." : "Invalid authenticator code" }, {
       status: locked ? 429 : 401,
       headers: { ...HEADERS, ...(locked ? { "Retry-After": "900" } : {}) },
@@ -70,11 +69,8 @@ export async function POST(request: NextRequest) {
   }
   if (!(await completeAdminMfaChallenge(challengeHash, counter))) {
     await auditAdminAuthEvent(request, "totp_challenge", false);
-    const ipAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
-    const accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
-    return NextResponse.json({ error: ipAttempts > 5 || accountAttempts > 5 ? "MFA verification temporarily locked" : "Authenticator code has already been used or challenge expired" }, {
-      status: ipAttempts > 5 || accountAttempts > 5 ? 429 : 401,
-      headers: { ...HEADERS, ...(ipAttempts > 5 || accountAttempts > 5 ? { "Retry-After": "900" } : {}) },
+    return NextResponse.json({ error: "Authenticator code has already been used or challenge expired" }, {
+      status: 401, headers: HEADERS,
     });
   }
   await clearAdminAuthAttempts(clientKey);
