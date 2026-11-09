@@ -25,5 +25,14 @@ await sql`
 `;
 await sql`CREATE INDEX IF NOT EXISTS comments_post_slug_idx ON comments (post_slug)`;
 await sql`CREATE INDEX IF NOT EXISTS comments_ip_created_idx ON comments (ip, created_at)`;
+await sql`
+  CREATE TABLE IF NOT EXISTS admin_sessions (
+    token_hash CHAR(64) PRIMARY KEY,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )
+`;
+await sql`CREATE INDEX IF NOT EXISTS admin_sessions_expires_idx ON admin_sessions (expires_at)`;
+await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
 
-console.log("comments table ready.");
+console.log("comments and admin_sessions tables ready.");
