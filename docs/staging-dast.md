@@ -1,38 +1,71 @@
-# Staging-only DAST with OWASP ZAP
+# DAST with OWASP ZAP
 
-This workflow runs OWASP ZAP Baseline against one explicitly supplied staging URL. It performs a bounded passive scan: it spiders the target and evaluates passive security rules. It does not run ZAP active attack scans. The workflow is manual-only (workflow_dispatch) and must never be pointed at production.
+This repository has three manual-only DAST workflows:
 
-## One-time GitHub configuration
+- `.github/workflows/dast-staging.yml`: passive baseline for a future, explicitly allowlisted staging deployment.
+- `.github/workflows/dast-production-passive.yml`: bounded passive baseline against the fixed production origin `https://sarvodaya.dev`.
+- `.github/workflows/dast-production-active.yml`: optional active scan against the same fixed production origin. It sends attack traffic and must be used only with explicit authorization and a maintenance/monitoring plan.
 
-1. Create a GitHub Actions environment named staging under Settings → Environments.
-2. Add the repository Actions variable DAST_ALLOWED_HOSTS with comma-separated, exact staging hostnames, for example staging.example.com,staging-api.example.com. Do not include schemes, paths, wildcards, or production hosts.
-3. Add DAST_PRODUCTION_HOSTS with comma-separated production hostnames. This denylist is mandatory and must include every production hostname.
-4. Configure environment protection/reviewers and staging network access as required. No credentials are embedded in the workflow.
+None of these workflows runs on push or pull request. Production workflows require an exact typed confirmation and use GitHub Environments as an approval boundary.
 
-The workflow fails closed if either host list is missing. The validator requires HTTPS, rejects credentials, query strings, fragments, newlines, localhost and IP addresses, rejects the production denylist, and requires an exact hostname match against the staging allowlist.
+## GitHub environment setup
 
-## Run it
+Create these environments under Settings → Environments:
 
-Open Actions → Staging DAST (OWASP ZAP Baseline) → Run workflow. Supply the full staging URL. The hostname must match DAST_ALLOWED_HOSTS. The scan is serialized to avoid overlapping scans against the same staging environment.
+1. `production-dast` for passive production checks.
+2. `production-active-dast` for active production testing.
 
-## Safety boundaries
+For `production-active-dast`, configure required reviewers and prevent self-review where the repository plan/settings support it. Restrict deployment branches to the DAST branch or `main` as appropriate. Do not run the active workflow until the environment protection is in place and the hosting/CDN provider's testing policy has been checked.
 
-- Only scan systems for which the repository owner has explicit authorization.
-- Use a dedicated staging deployment with representative but non-production data.
-- The baseline action performs passive checks; do not replace it with an active/full scan or enable active scan policies without a separate security review and written authorization.
-- Spider depth is capped at 3 and duration at 3 minutes. The spider skips URL strings matching logout/signout, delete/destroy/remove, and moderation/approval/rejection patterns. Verify these exclusions against the deployed application's route names before the first scan.
-- Do not put tokens or credentials in the URL. If authentication is later required, use a reviewed ZAP context and GitHub environment secrets; exclude state-changing actions and verify scope before enabling it.
-- Respect staging rate limits and coordinate scans with the environment owner. Stop the workflow immediately if it causes unexpected load or behavior.
-- Disable the workflow by disabling .github/workflows/dast-staging.yml or restricting Actions access. Removing either host-list variable makes all runs fail closed.
+For future staging, create the `staging` environment and configure repository Actions variables:
 
-## Severity gate and reports
+- `DAST_ALLOWED_HOSTS`: comma-separated exact staging hostnames (no scheme, path, wildcard, or production host).
+- `DAST_PRODUCTION_HOSTS`: comma-separated production hostnames; mandatory denylist.
 
-The JSON report is evaluated after the baseline scan. High-risk findings (ZAP risk code 3) fail the job; medium, low, and informational findings remain visible in the report for triage. The ZAP action uploads HTML, JSON, and Markdown reports as the zap-staging-dast-reports artifact. Review findings for reachability, environment-specific context, false positives, and remediation priority before suppressing or accepting risk.
+The staging validator fails closed if either list is missing and rejects production hosts, non-HTTPS URLs, credentials, query strings, fragments, localhost, and IP addresses.
 
-## Validation
+## Production passive scan
 
-The Node test runner automatically discovers both DAST test files through the existing npm test command. Run targeted tests with:
+Open Actions → Production DAST (OWASP ZAP Passive Baseline) → Run workflow. Enter exactly:
 
-    node --test scripts/validate-dast-target.test.mjs scripts/check-zap-report.test.mjs
+```
+CONFIRM-AUTHORIZED-PRODUCTION-DAST
+```
 
-Tests cover allowlist validation and the high-risk severity gate.
+The target is hard-coded to `https://sarvodaya.dev`; it cannot be overridden by workflow input. The scan uses a shallow, time-bounded spider and passive rules only. Passive scanning does not alter requests or responses, but crawling still generates traffic; schedule it responsibly and monitor the service.
+
+## Production active scan
+
+**Active scanning sends attack payloads. It can submit forms, trigger application behavior, create messages, or add load. No workflow can guarantee zero impact.** Do not run it merely because the site currently has no customer data.
+
+Before enabling a run:
+
+- Confirm you own the target or have written authorization to test it.
+- Check the hosting provider, CDN, WAF, and other service policies.
+- Configure required reviewers on the `production-active-dast` GitHub Environment.
+- Review the app's forms and routes; ZAP may submit forms during crawling.
+- Choose a maintenance window, monitor service health, and have a stop/rollback contact ready.
+
+To dispatch, open Actions → Production Active DAST (Manual, Approval-Gated) and enter exactly:
+
+```
+CONFIRM-AUTHORIZED-PRODUCTION-DAST
+```
+
+The target is fixed to `https://sarvodaya.dev`. The workflow limits spider depth and duration, uses one active-scan thread, configures a short active-scan time budget and a request delay, and skips URL patterns for logout/signout and common destructive/moderation routes. These controls reduce exposure but do not make active testing risk-free. The report is uploaded as `zap-production-active-dast-reports`; findings do not automatically fail the workflow.
+
+## Staging scan
+
+For a future staging environment, open Actions → Staging DAST (OWASP ZAP Baseline) and supply the HTTPS staging URL. The exact hostname must match `DAST_ALLOWED_HOSTS` and must not appear in `DAST_PRODUCTION_HOSTS`. The workflow uses passive checks only.
+
+## Reports and validation
+
+ZAP uploads HTML, JSON, and Markdown reports as workflow artifacts. Review findings for reachability, environment-specific context, false positives, and remediation priority before suppressing or accepting risk.
+
+Run the DAST unit tests with:
+
+```sh
+node --test scripts/validate-dast-target.test.mjs scripts/check-zap-report.test.mjs
+```
+
+The target-validator tests cover exact allowlisting and production-denylist behavior. The report-gate tests cover high-risk ZAP findings.
