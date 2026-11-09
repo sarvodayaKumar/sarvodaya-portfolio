@@ -166,8 +166,13 @@ export default function AdminMfaPage() {
   }
 
   async function signOut() {
-    await fetch("/api/admin/session", { method: "DELETE" });
-    router.push("/admin/comments");
+    try {
+      const response = await fetch("/api/admin/session", { method: "DELETE" });
+      if (!response.ok) throw new Error("Unable to revoke the administrator session. Please retry.");
+      router.push("/admin/comments");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to sign out. Please retry.");
+    }
   }
 
   if (mode === "loading") return <main className="mx-auto max-w-xl px-6 py-16"><p role="status" className="text-sm text-muted">Checking authentication…</p></main>;
