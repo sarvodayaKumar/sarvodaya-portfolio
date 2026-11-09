@@ -64,6 +64,20 @@ await sql`
 `;
 await sql`CREATE INDEX IF NOT EXISTS admin_email_magic_links_expires_idx ON admin_email_magic_links (expires_at)`;
 await sql`
+  CREATE TABLE IF NOT EXISTS admin_auth_audit_events (
+    id BIGSERIAL PRIMARY KEY,
+    event_type TEXT NOT NULL CHECK (event_type IN (
+      'password_sign_in', 'totp_enrollment', 'totp_challenge', 'email_otp',
+      'email_magic_link', 'recovery_code', 'mfa_disable', 'session_logout'
+    )),
+    actor_key CHAR(64),
+    success BOOLEAN NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )
+`;
+await sql`CREATE INDEX IF NOT EXISTS admin_auth_audit_events_created_idx ON admin_auth_audit_events (created_at DESC)`;
+await sql`DELETE FROM admin_auth_audit_events WHERE created_at < now() - interval '90 days'`;
+await sql`
   CREATE TABLE IF NOT EXISTS admin_auth_attempts (
     client_key CHAR(64) PRIMARY KEY,
     window_started_at TIMESTAMPTZ NOT NULL,
@@ -106,4 +120,4 @@ await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
 await sql`DELETE FROM admin_mfa_challenges WHERE expires_at <= now()`;
 await sql`DELETE FROM site_analytics_daily WHERE day < CURRENT_DATE - INTERVAL '90 days'`;
 
-console.log("comments, admin_sessions, admin_auth_attempts, admin_mfa_credentials, admin_mfa_challenges, admin_email_otp_challenges, admin_email_magic_links, and site_analytics tables ready.");
+console.log("comments, admin_sessions, admin_auth_attempts, admin_mfa_credentials, admin_mfa_challenges, admin_email_otp_challenges, admin_email_magic_links, admin_auth_audit_events, and site_analytics tables ready.");
