@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  disableAdminTotp, enableAdminTotp, getAdminSessionWithMfaPolicy, getAdminTotpCredential,
+  disableAdminTotp, enableAdminTotp, getAdminTotpCredential, getRecentAdminMfaSession,
   clearAdminAuthAttempts, getValidAdminMfaChallenge, getValidAdminSession,
   recordFailedAdminAuthAttempt, recordAdminTotpEnrollmentFailure, revokeAllAdminSessions,
   savePendingAdminTotpSecret,
@@ -119,18 +119,19 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
   const session = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!(await authorizeAdminSession(session, getAdminSessionWithMfaPolicy))) {
-    return NextResponse.json({ error: "An MFA-verified session is required" }, { status: 401, headers: HEADERS });
+  if (!(await authorizeAdminSession(session, (tokenHash) => getRecentAdminMfaSession(tokenHash, 10 * 60)))) {
+    return NextResponse.json({ error: "Complete MFA sign-in again before changing authenticator settings" }, { status: 401, headers: HEADERS });
   }
   const bodyLength = Number(request.headers.get("content-length") ?? 0);
   if (bodyLength > 2048) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   const rawBody = await request.text();
   if (rawBody.length > 2048) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
-  let body: { code?: unknown; password?: unknown } | null = null;
-  try { body = JSON.parse(rawBody) as { code?: unknown; password?: unknown }; } catch { /* generic invalid request */ }
-  if (!body || typeof body.code !== "string" || !/^\d{6}$/.test(body.code) || typeof body.password !== "string") {
-    return NextResponse.json({ error: "Password and current authenticator code are required" }, { status: 400, headers: HEADERS });
+  let body: { password?: unknown } | null = null;
+  try { body = JSON.parse(rawBody) as { password?: unknown }; } catch { /* generic invalid request */ }
+  if (!body || typeof body.password !== "string") {
+    return NextResponse.json({ error: "Administrator password is required" }, { status: 400, headers: HEADERS });
   }
+
   const clientKey = getAdminAuthClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   const accountKey = getAdminAuthAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
@@ -151,18 +152,8 @@ export async function DELETE(request: NextRequest) {
   }
   const credential = await getAdminTotpCredential();
   if (!credential?.enabled) return NextResponse.json({ error: "Authenticator is not enabled" }, { status: 409, headers: HEADERS });
-  let counter: number | null = null;
-  try {
-    counter = getTotpCounterForCode(decryptTotpSecret(credential.encryptedSecret), body.code);
-  } catch {
-    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
-  }
-  if (counter === null) {
-    await auditAdminAuthEvent(request, "mfa_disable", false);
-    return NextResponse.json({ error: "Invalid authenticator code" }, { status: 401, headers: HEADERS });
-  }
-  if (!(await disableAdminTotp(counter))) {
-    return NextResponse.json({ error: "Authenticator code has already been used. Wait for the next code and retry." }, { status: 409, headers: HEADERS });
+  if (!(await disableAdminTotp())) {
+    return NextResponse.json({ error: "Unable to disable authenticator" }, { status: 409, headers: HEADERS });
   }
   await auditAdminAuthEvent(request, "mfa_disable", true);
   await clearAdminAuthAttempts(clientKey);
