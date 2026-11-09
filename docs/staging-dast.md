@@ -6,10 +6,10 @@ This workflow runs OWASP ZAP Baseline against one explicitly supplied staging UR
 
 1. Create a GitHub Actions environment named staging under Settings → Environments.
 2. Add the repository Actions variable DAST_ALLOWED_HOSTS with comma-separated, exact staging hostnames, for example staging.example.com,staging-api.example.com. Do not include schemes, paths, wildcards, or production hosts.
-3. Optionally add DAST_PRODUCTION_HOSTS with comma-separated production hostnames as a second explicit denylist.
+3. Add DAST_PRODUCTION_HOSTS with comma-separated production hostnames. This denylist is mandatory and must include every production hostname.
 4. Configure environment protection/reviewers and staging network access as required. No credentials are embedded in the workflow.
 
-The workflow fails closed if DAST_ALLOWED_HOSTS is missing. The validator requires HTTPS, rejects credentials, query strings, fragments, newlines, localhost and IP addresses, rejects the production denylist, and requires an exact hostname match against the staging allowlist.
+The workflow fails closed if either host list is missing. The validator requires HTTPS, rejects credentials, query strings, fragments, newlines, localhost and IP addresses, rejects the production denylist, and requires an exact hostname match against the staging allowlist.
 
 ## Run it
 
@@ -23,7 +23,7 @@ Open Actions → Staging DAST (OWASP ZAP Baseline) → Run workflow. Supply the 
 - Spider depth is capped at 3 and duration at 3 minutes. The spider skips URL strings matching logout/signout, delete/destroy/remove, and moderation/approval/rejection patterns. Verify these exclusions against the deployed application's route names before the first scan.
 - Do not put tokens or credentials in the URL. If authentication is later required, use a reviewed ZAP context and GitHub environment secrets; exclude state-changing actions and verify scope before enabling it.
 - Respect staging rate limits and coordinate scans with the environment owner. Stop the workflow immediately if it causes unexpected load or behavior.
-- Disable the workflow by disabling .github/workflows/dast-staging.yml or restricting Actions access. Removing DAST_ALLOWED_HOSTS makes all runs fail closed.
+- Disable the workflow by disabling .github/workflows/dast-staging.yml or restricting Actions access. Removing either host-list variable makes all runs fail closed.
 
 ## Severity gate and reports
 
