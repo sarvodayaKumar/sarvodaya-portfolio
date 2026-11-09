@@ -88,12 +88,12 @@ def main() -> int:
     )
 
     body = (
-        "Daily security scan results for sarvodaya-portfolio\\n\\n"
-        + "\\n".join(f"{name}: {status}" for name, status in results.items())
-        + f"\\n\\nDependency findings: {dependency_summary}\\n"
-        + "\\nA failed scanner job requires triage. Review GitHub Actions and "
+        "Daily security scan results for sarvodaya-portfolio\n\n"
+        + "\n".join(f"{name}: {status}" for name, status in results.items())
+        + f"\n\nDependency findings: {dependency_summary}\n"
+        + "\nA failed scanner job requires triage. Review GitHub Actions and "
         "GitHub Code Scanning for detailed findings. A clean scan does not "
-        "guarantee the absence of vulnerabilities.\\n"
+        "guarantee the absence of vulnerabilities.\n"
     )
 
     try:
