@@ -31,7 +31,9 @@ jobs:
 
   browser:
     name: Playwright and axe regression
-    runs-on: ubuntu-latest
+    # Playwright 1.56.1 does not support Ubuntu 26.04 yet.
+    # Pin this job to the supported Ubuntu 24.04 runner image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/portfolio
