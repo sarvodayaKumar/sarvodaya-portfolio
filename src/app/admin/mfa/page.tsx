@@ -16,6 +16,10 @@ export default function AdminMfaPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [emailMode, setEmailMode] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [regenerateCode, setRegenerateCode] = useState("");
+  const [regenerating, setRegenerating] = useState(false);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/admin/mfa", { cache: "no-store" });
@@ -62,6 +66,11 @@ export default function AdminMfaPage() {
             method: "PUT", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ code }),
           })
+        : mode === "challenge" && recoveryMode
+        ? await fetch("/api/admin/mfa/recovery", {
+            method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code }),
+          })
         : mode === "challenge"
         ? await fetch("/api/admin/mfa/challenge", {
             method: "POST", headers: { "Content-Type": "application/json" },
@@ -90,7 +99,8 @@ export default function AdminMfaPage() {
       }
       setEnrollment(null);
       setEnabled(true);
-      setNotice("Authenticator enabled. Sign out and sign in again to complete MFA verification.");
+      setRecoveryCodes(Array.isArray(data.recoveryCodes) ? data.recoveryCodes : []);
+      setNotice(data.message ?? "Authenticator enabled. Sign out and sign in again to complete MFA verification.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Code verification failed.");
     } finally { setBusy(false); }
@@ -103,11 +113,30 @@ export default function AdminMfaPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error ?? "Unable to send an email code.");
       setEmailMode(true);
+      setRecoveryMode(false);
       setCode("");
       setNotice("A one-time code was sent to the administrator email address.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to send an email code.");
     } finally { setBusy(false); }
+  }
+
+  async function regenerateRecoveryCodes() {
+    setRegenerating(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/admin/mfa/recovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: regenerateCode }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error ?? "Unable to regenerate recovery codes.");
+      setRecoveryCodes(Array.isArray(data.recoveryCodes) ? data.recoveryCodes : []);
+      setRegenerateCode("");
+      setNotice(data.message ?? "Recovery codes regenerated.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to regenerate recovery codes.");
+    } finally { setRegenerating(false); }
   }
 
   async function signOut() {
@@ -135,17 +164,27 @@ export default function AdminMfaPage() {
           <h2 className="font-semibold text-foreground">Verify your authenticator</h2>
           <p className="mt-2 text-sm text-muted">Enter a current six-digit code from your authenticator app, or use the email fallback. The login challenge expires after five minutes.</p>
           <form onSubmit={submitCode} className="mt-5 space-y-3">
-            <label className="block text-sm text-foreground">{emailMode ? "Email one-time code" : "Authenticator code"}
-              <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 font-mono text-lg tracking-[0.3em] text-foreground" />
+            <label className="block text-sm text-foreground">{emailMode ? "Email one-time code" : recoveryMode ? "Recovery code" : "Authenticator code"}
+              <input inputMode={recoveryMode ? "text" : "numeric"} autoComplete="one-time-code" pattern={recoveryMode ? "[A-Fa-f0-9]{5}(-[A-Fa-f0-9]{5}){3}" : "[0-9]{6}"} maxLength={recoveryMode ? 23 : 6} required value={code} onChange={(event) => setCode(recoveryMode ? event.target.value.toUpperCase().replace(/[^A-F0-9-]/g, "").slice(0, 23) : event.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 font-mono text-lg tracking-[0.2em] text-foreground" />
             </label>
-            <button disabled={busy || code.length !== 6} className="rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background disabled:opacity-50">{busy ? "Verifying…" : "Verify and sign in"}</button>
+            <button disabled={busy || (recoveryMode ? !/^[A-F0-9]{5}(?:-[A-F0-9]{5}){3}$/.test(code) : code.length !== 6)} className="rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background disabled:opacity-50">{busy ? "Verifying…" : "Verify and sign in"}</button>
           </form>
-          {!emailMode ? (
+          {!emailMode && !recoveryMode ? (
             <button type="button" onClick={sendEmailCode} disabled={busy} className="mt-4 text-sm text-foreground underline underline-offset-4 disabled:opacity-50">
               {busy ? "Sending…" : "Use email one-time code instead"}
             </button>
+          ) : null}
+          {!recoveryMode ? (
+            <button type="button" onClick={() => { setRecoveryMode(true); setEmailMode(false); setCode(""); setError(""); setNotice(""); }} className="mt-3 block text-sm text-foreground underline underline-offset-4">
+              Use a recovery code instead
+            </button>
           ) : (
-            <button type="button" onClick={() => { setEmailMode(false); setCode(""); setError(""); setNotice(""); }} className="mt-4 text-sm text-foreground underline underline-offset-4">
+            <button type="button" onClick={() => { setRecoveryMode(false); setCode(""); setError(""); setNotice(""); }} className="mt-3 block text-sm text-foreground underline underline-offset-4">
+              Use authenticator app instead
+            </button>
+          )}
+          {emailMode && (
+            <button type="button" onClick={() => { setEmailMode(false); setCode(""); setError(""); setNotice(""); }} className="mt-3 block text-sm text-foreground underline underline-offset-4">
               Use authenticator app instead
             </button>
           )}
@@ -157,8 +196,28 @@ export default function AdminMfaPage() {
           {enabled ? (
             <>
               <p className="text-sm font-medium text-emerald-600">Authenticator is enabled.</p>
-              <p className="mt-2 text-sm text-muted">New password sign-ins now require a valid authenticator code. This browser's current password-only session must be replaced with an MFA-verified session.</p>
-              <button onClick={signOut} className="mt-5 rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background">Sign out and verify MFA</button>
+              {recoveryCodes.length > 0 ? (
+                <div className="mt-4 rounded-xl border border-border bg-background p-4">
+                  <p className="text-sm font-semibold text-foreground">Save your recovery codes now</p>
+                  <p className="mt-1 text-xs text-muted">Each code works once. These codes are displayed only now and cannot be retrieved later.</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-xs text-foreground">
+                    {recoveryCodes.map((recoveryCode) => <code key={recoveryCode}>{recoveryCode}</code>)}
+                  </div>
+                  <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\\n"))} className="mt-4 text-xs text-foreground underline underline-offset-4">Copy all recovery codes</button>
+                  <button type="button" onClick={() => setRecoveryCodes([])} className="ml-4 mt-4 text-xs text-foreground underline underline-offset-4">I saved these codes</button>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-border bg-background p-4">
+                  <p className="text-sm font-semibold text-foreground">Recovery codes</p>
+                  <p className="mt-1 text-xs text-muted">Regenerate to invalidate all previously issued codes. Enter a fresh authenticator code to confirm.</p>
+                  <form onSubmit={(event) => { event.preventDefault(); regenerateRecoveryCodes(); }} className="mt-3 flex flex-wrap gap-2">
+                    <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={regenerateCode} onChange={(event) => setRegenerateCode(event.target.value.replace(/\\D/g, "").slice(0, 6))} aria-label="Current authenticator code" className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm text-foreground" />
+                    <button disabled={regenerating || regenerateCode.length !== 6} className="rounded-full bg-foreground px-4 py-2 text-xs font-medium text-background disabled:opacity-50">{regenerating ? "Generating…" : "Regenerate"}</button>
+                  </form>
+                </div>
+              )}
+              <p className="mt-4 text-sm text-muted">New password sign-ins require a valid authenticator code or an email OTP. Password-only sessions cannot access admin APIs.</p>
+              <button onClick={signOut} className="mt-5 rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background">Sign out</button>
             </>
           ) : (
             <>
