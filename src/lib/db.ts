@@ -309,3 +309,24 @@ export async function consumeAdminTotpCounter(counter: number): Promise<boolean>
   `;
   return rows.length === 1;
 }
+/** Consume the challenge and TOTP time-step in one statement to prevent concurrent reuse. */
+export async function completeAdminMfaChallenge(tokenHash: string, counter: number): Promise<boolean> {
+  if (!Number.isSafeInteger(counter) || counter < 0) return false;
+  const sql = getSql();
+  const rows = await sql`
+    WITH consumed AS (
+      DELETE FROM admin_mfa_challenges
+      WHERE token_hash = ${tokenHash} AND expires_at > now() AND attempts < 5
+      RETURNING token_hash
+    ),
+    updated AS (
+      UPDATE admin_mfa_credentials
+      SET last_used_counter = ${counter}, updated_at = now()
+      WHERE admin_id = 'primary' AND enabled = true AND last_used_counter < ${counter}
+        AND EXISTS (SELECT 1 FROM consumed)
+      RETURNING admin_id
+    )
+    SELECT admin_id FROM updated
+  `;
+  return rows.length === 1;
+}
