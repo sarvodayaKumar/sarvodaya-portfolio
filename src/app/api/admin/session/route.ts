@@ -140,5 +140,9 @@ export async function DELETE(request: NextRequest) {
     httpOnly: true, secure: process.env.NODE_ENV === "production",
     sameSite: "strict", path: "/api", maxAge: 0,
   });
+  response.cookies.set(MFA_CHALLENGE_COOKIE, "", {
+    httpOnly: true, secure: process.env.NODE_ENV === "production",
+    sameSite: "strict", path: "/api/admin/mfa", maxAge: 0,
+  });
   return response;
 }
