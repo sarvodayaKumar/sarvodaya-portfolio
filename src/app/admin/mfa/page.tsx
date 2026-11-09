@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 type Mode = "loading" | "challenge" | "enrollment" | "signed-out";
@@ -143,6 +144,15 @@ export default function AdminMfaPage() {
                     <p className="mt-2 break-all font-mono text-sm font-semibold tracking-wider text-foreground">{enrollment.secret}</p>
                     <button type="button" onClick={() => navigator.clipboard.writeText(enrollment.secret)} className="mt-3 text-xs text-foreground underline underline-offset-4">Copy setup key</button>
                   </div>
+                  <div className="mt-5 flex justify-center rounded-xl bg-white p-4">
+                    <QRCodeSVG
+                      value={enrollment.provisioningUri}
+                      size={220}
+                      level="M"
+                      title="Authenticator setup QR code"
+                    />
+                  </div>
+                  <p className="mt-3 text-center text-xs text-muted">Scan this QR code with your authenticator app. The code is generated locally in your browser; the secret is not sent to a QR service.</p>
                   <p className="mt-4 text-xs text-muted">If your app supports provisioning URIs, use this value:</p>
                   <code className="mt-2 block max-h-24 overflow-auto break-all rounded-xl bg-background p-3 text-xs text-muted">{enrollment.provisioningUri}</code>
                   <form onSubmit={submitCode} className="mt-5 space-y-3">
