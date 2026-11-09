@@ -4,7 +4,6 @@ import {
   createAdminSession,
   getAdminTotpCredential,
   getAdminSessionWithMfaPolicy,
-  getValidAdminSession,
   revokeAdminSession,
   recordFailedAdminAuthAttempt,
   clearAdminAuthAttempts,
