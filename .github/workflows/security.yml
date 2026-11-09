@@ -63,6 +63,8 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+    outputs:
+      summary: ${{ steps.audit-gate.outputs.summary }}
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -74,11 +76,11 @@ jobs:
           cache: npm
 
       - name: Audit locked dependencies
-        id: npm-audit
         continue-on-error: true
         run: npm audit --json --audit-level=high > npm-audit.json
 
       - name: Enforce the high/critical severity gate
+        id: audit-gate
         run: node scripts/check-npm-audit.mjs npm-audit.json
 
       - name: Upload machine-readable dependency report
@@ -89,3 +91,30 @@ jobs:
           path: npm-audit.json
           if-no-files-found: warn
           retention-days: 30
+
+  daily-email:
+    name: Daily security email (11 AM IST)
+    if: always() && github.event_name == 'schedule'
+    needs:
+      - codeql
+      - gitleaks
+      - dependency-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out notification script
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Email daily scan results
+        env:
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_SERVER: ${{ vars.SMTP_SERVER }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          EMAIL_TO: sarvodaya.kumar@outlook.com
+          SCAN_DATE: ${{ github.run_started_at }}
+          CODEQL_RESULT: ${{ needs.codeql.result }}
+          GITLEAKS_RESULT: ${{ needs.gitleaks.result }}
+          DEPENDENCY_AUDIT_RESULT: ${{ needs.dependency-audit.result }}
+          DEPENDENCY_SUMMARY: ${{ needs.dependency-audit.outputs.summary }}
+        run: python3 scripts/send-security-email.py
