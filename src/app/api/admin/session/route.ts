@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   createAdminMfaChallenge,
+  consumeAdminMfaChallenge,
   createAdminSession,
   getAdminTotpCredential,
   getAdminSessionWithMfaPolicy,
@@ -146,6 +147,8 @@ export async function DELETE(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   try {
     if (token) await revokeAdminSession(hashSessionToken(token));
+    const pendingChallenge = request.cookies.get(MFA_CHALLENGE_COOKIE)?.value;
+    if (pendingChallenge) await consumeAdminMfaChallenge(hashMagicLinkToken(pendingChallenge));
   } catch {
     return NextResponse.json({ error: "Unable to sign out" }, { status: 503, headers: RESPONSE_HEADERS });
   }
