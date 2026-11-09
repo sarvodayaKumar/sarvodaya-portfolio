@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AdminSignInForm() {
+  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -31,7 +33,7 @@ export default function AdminSignInForm() {
         return;
       }
       setPassword("");
-      window.location.assign(result.mfaRequired ? "/admin/mfa" : "/admin");
+      router.push(result.mfaRequired ? "/admin/mfa" : "/admin");
     } catch {
       setError("Unable to sign in. Please try again.");
     } finally {
