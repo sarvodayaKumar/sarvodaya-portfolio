@@ -1,3 +1,4 @@
+import { readLimitedRequestBody } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import {
   createAdminMfaChallenge,
@@ -61,10 +62,8 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: RESPONSE_HEADERS });
   }
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 4096) return NextResponse.json(AUTH_FAILURE, { status: 413, headers: RESPONSE_HEADERS });
-  const raw = await request.text();
-  if (raw.length > 4096) return NextResponse.json(AUTH_FAILURE, { status: 413, headers: RESPONSE_HEADERS });
+  const raw = await readLimitedRequestBody(request, 4096);
+  if (raw === null) return NextResponse.json(AUTH_FAILURE, { status: 413, headers: RESPONSE_HEADERS });
   let body: unknown;
   try { body = JSON.parse(raw); } catch {
     return NextResponse.json(AUTH_FAILURE, { status: 400, headers: RESPONSE_HEADERS });
