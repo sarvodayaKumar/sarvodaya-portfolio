@@ -1,0 +1,62 @@
+name: Staging DAST (OWASP ZAP Baseline)
+
+on:
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: "Explicit HTTPS staging URL (hostname must be allowlisted)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-dast
+  cancel-in-progress: false
+
+jobs:
+  validate-target:
+    name: Validate staging target
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      target: ${{ steps.validate.outputs.target }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Validate explicit staging URL
+        id: validate
+        env:
+          DAST_ALLOWED_HOSTS: ${{ vars.DAST_ALLOWED_HOSTS }}
+          DAST_PRODUCTION_HOSTS: ${{ vars.DAST_PRODUCTION_HOSTS }}
+          STAGING_URL: ${{ inputs.staging_url }}
+        run: |
+          node scripts/validate-dast-target.mjs "$STAGING_URL"
+          echo "target=$STAGING_URL" >> "$GITHUB_OUTPUT"
+
+  zap-baseline:
+    name: OWASP ZAP passive baseline scan
+    needs: validate-target
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Run ZAP baseline (passive rules only)
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: ${{ needs.validate-target.outputs.target }}
+          cmd_options: >-
+            -m 3
+            -T 10
+            -z "-config spider.maxDepth=3 -config spider.skipurl=(?i).*(logout|signout|delete|destroy|remove|moderation|approve|reject).*"
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: zap-staging-dast-reports
+      - name: Enforce high-severity gate
+        if: always()
+        run: node scripts/check-zap-report.mjs report_json.json

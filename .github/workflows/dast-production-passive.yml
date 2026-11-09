@@ -1,0 +1,52 @@
+name: Production DAST (OWASP ZAP Passive Baseline)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_scan:
+        description: 'Type CONFIRM-AUTHORIZED-PRODUCTION-DAST to authorize this passive scan'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-dast
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Confirm production passive scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require explicit authorization
+        env:
+          CONFIRMATION: ${{ inputs.confirm_production_scan }}
+        run: |
+          if [ "$CONFIRMATION" != "CONFIRM-AUTHORIZED-PRODUCTION-DAST" ]; then
+            echo "::error::Production DAST requires the exact confirmation phrase."
+            exit 1
+          fi
+
+  zap-baseline:
+    name: OWASP ZAP passive baseline (production)
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production-dast
+    permissions:
+      contents: read
+    steps:
+      - name: Run ZAP baseline against the fixed production origin
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: https://sarvodaya.dev
+          cmd_options: >-
+            -m 2
+            -T 10
+            -z "-config spider.maxDepth=2 -config spider.skipurl=(?i).*(logout|signout|delete|destroy|remove|moderation|approve|reject).*"
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: zap-production-passive-dast-reports
