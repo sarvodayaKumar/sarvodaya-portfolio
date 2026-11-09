@@ -68,8 +68,9 @@ export async function PUT(request: NextRequest) {
   const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
-  const throttle = await getAdminAuthAttempts(clientKey, accountKey, 15 * 60);
-  if (throttle.clientAttempts >= 5 || throttle.accountAttempts >= 5) {
+  const clientAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
+  const accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
+  if (clientAttempts > 5 || accountAttempts > 5) {
     const response = NextResponse.json({ error: "Recovery verification temporarily locked. Sign in again later." }, {
       status: 429, headers: { ...HEADERS, "Retry-After": "900" },
     });
@@ -79,9 +80,7 @@ export async function PUT(request: NextRequest) {
   if (!(await completeAdminMfaRecoveryChallenge(challengeHash, recoveryHash))) {
     await auditAdminAuthEvent(request, "recovery_code", false);
     const attempts = await recordAdminMfaChallengeFailure(challengeHash);
-    const ipAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
-    const accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
-    const locked = attempts >= 5 || ipAttempts > 5 || accountAttempts > 5;
+    const locked = attempts >= 5;
     const response = NextResponse.json({ error: locked ? "Recovery verification temporarily locked. Sign in again later." : "Invalid or already used recovery code." }, {
       status: locked ? 429 : 401,
       headers: { ...HEADERS, ...(locked ? { "Retry-After": "900" } : {}) },
@@ -132,17 +131,16 @@ export async function POST(request: NextRequest) {
   const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
-  const throttle = await getAdminAuthAttempts(clientKey, accountKey, 15 * 60);
-  if (throttle.clientAttempts >= 5 || throttle.accountAttempts >= 5) {
+  const clientAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
+  const accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
+  if (clientAttempts > 5 || accountAttempts > 5) {
     return NextResponse.json({ error: "Recovery-code management temporarily locked" }, {
       status: 429, headers: { ...HEADERS, "Retry-After": "900" },
     });
   }
   if (counter === null) {
     await auditAdminAuthEvent(request, "recovery_code", false);
-    const ipAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
-    const accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
-    const locked = ipAttempts > 5 || accountAttempts > 5;
+    const locked = false;
     return NextResponse.json({ error: locked ? "Recovery-code management temporarily locked" : "Invalid authenticator code" }, {
       status: locked ? 429 : 401,
       headers: { ...HEADERS, ...(locked ? { "Retry-After": "900" } : {}) },
@@ -153,8 +151,6 @@ export async function POST(request: NextRequest) {
   const hashes = recoveryCodes.map((code) => hashOneTimeCode(code.replace(/-/g, ""), "mfa-recovery"));
   if (!(await regenerateAdminRecoveryCodes(counter, hashes))) {
     await auditAdminAuthEvent(request, "recovery_code", false);
-    await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
-    await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
     return NextResponse.json({ error: "Authenticator code was already used. Wait for the next code and retry." }, { status: 409, headers: HEADERS });
   }
   await clearAdminAuthAttempts(clientKey);
