@@ -1,16 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, scryptSync } from "node:crypto";
+import bcrypt from "bcryptjs";
 import {
   authorizeAdminSession, createSessionToken, hashSessionToken,
   getAdminAuthClientKey, getAdminCredentialsFromBody, isSameOrigin,
   safeEqual, verifyAdminPassword,
 } from "../src/lib/admin-session.ts";
 
-function passwordHash(password) {
-  const salt = randomBytes(16);
-  const key = scryptSync(password, salt, 64, { N: 65_536, r: 8, p: 1, maxmem: 128 * 1024 * 1024 });
-  return `scrypt$65536$8$1$${salt.toString("base64url")}$${key.toString("base64url")}`;
+async function passwordHash(password) {
+  return bcrypt.hash(password, 12);
 }
 
 test("credential parsing rejects malformed login payloads", () => {
@@ -28,8 +26,8 @@ test("username comparisons are constant-time and exact", () => {
   assert.equal(safeEqual("short", "a-longer-value"), false);
 });
 
-test("scrypt password hashes verify and malformed hashes fail closed", async () => {
-  const encoded = passwordHash("a-very-long-and-strong-test-password");
+test("bcrypt password hashes verify and legacy scrypt hashes fail closed", async () => {
+  const encoded = await passwordHash("a-very-long-and-strong-test-password");
   assert.equal(await verifyAdminPassword("a-very-long-and-strong-test-password", encoded), true);
   assert.equal(await verifyAdminPassword("wrong-password", encoded), false);
   assert.equal(await verifyAdminPassword("a-very-long-and-strong-test-password", undefined), false);
