@@ -10,11 +10,7 @@
       "startServerReadyPattern": "Ready in",
       "startServerReadyTimeout": 30000,
       "settings": {
-        "chromeFlags": [
-          "--no-sandbox",
-          "--headless",
-          "--disable-dev-shm-usage"
-        ]
+        "chromeFlags": "--no-sandbox --disable-setuid-sandbox --headless --disable-dev-shm-usage"
       }
     },
     "assert": {
