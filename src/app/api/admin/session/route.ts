@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  createAdminMfaChallenge,
   createAdminSession,
+  getAdminTotpCredential,
+  getAdminSessionWithMfaPolicy,
   getValidAdminSession,
   revokeAdminSession,
   recordFailedAdminAuthAttempt,
@@ -16,6 +19,7 @@ import {
   getAdminAuthClientKey,
   getAdminCredentialsFromBody,
 } from "@/lib/admin-session";
+import { createEmailMagicLinkToken, hashMagicLinkToken } from "@/lib/admin-mfa";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +29,8 @@ export const dynamic = "force-dynamic";
 // DELETE is same-origin logout. No admin data is exposed by this endpoint.
 
 const COOKIE_NAME = "admin_session";
+const MFA_CHALLENGE_COOKIE = "admin_mfa_challenge";
+const MFA_CHALLENGE_TTL_SECONDS = 5 * 60;
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const AUTH_WINDOW_SECONDS = 15 * 60;
 const MAX_FAILED_AUTH_ATTEMPTS = 5;
@@ -43,7 +49,7 @@ function setSessionCookie(response: NextResponse, token: string) {
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
-  const valid = await authorizeAdminSession(token, getValidAdminSession);
+  const valid = await authorizeAdminSession(token, getAdminSessionWithMfaPolicy);
   return NextResponse.json(valid ? { ok: true } : { error: "Unauthorized" }, {
     status: valid ? 200 : 401, headers: RESPONSE_HEADERS,
   });
@@ -95,10 +101,24 @@ export async function POST(request: NextRequest) {
 
   try {
     await clearAdminAuthAttempts(clientKey);
+    const credential = await getAdminTotpCredential();
+    if (credential?.enabled) {
+      const challengeToken = createEmailMagicLinkToken();
+      await createAdminMfaChallenge(
+        hashMagicLinkToken(challengeToken),
+        new Date(Date.now() + MFA_CHALLENGE_TTL_SECONDS * 1000)
+      );
+      const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: RESPONSE_HEADERS });
+      response.cookies.set(MFA_CHALLENGE_COOKIE, challengeToken, {
+        httpOnly: true, secure: process.env.NODE_ENV === "production",
+        sameSite: "strict", path: "/api/admin/mfa", maxAge: MFA_CHALLENGE_TTL_SECONDS,
+      });
+      return response;
+    }
     const sessionToken = createSessionToken();
     const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
-    await createAdminSession(hashSessionToken(sessionToken), expiresAt);
-    const response = NextResponse.json({ ok: true }, { headers: RESPONSE_HEADERS });
+    await createAdminSession(hashSessionToken(sessionToken), expiresAt, false);
+    const response = NextResponse.json({ ok: true, mfaRequired: false }, { headers: RESPONSE_HEADERS });
     setSessionCookie(response, sessionToken);
     return response;
   } catch {
