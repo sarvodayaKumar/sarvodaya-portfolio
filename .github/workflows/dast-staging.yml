@@ -53,7 +53,7 @@ jobs:
           cmd_options: >-
             -m 3
             -T 10
-            -z "-config spider.maxDepth=3 -config spider.skipURLString=logout,signout,delete,destroy,remove,moderation,approve,reject"
+            -z "-config spider.maxDepth=3 -config spider.skipurl=(?i).*(logout|signout|delete|destroy|remove|moderation|approve|reject).*"
           allow_issue_writing: false
           fail_action: false
           artifact_name: zap-staging-dast-reports
