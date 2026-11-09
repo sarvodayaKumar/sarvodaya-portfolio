@@ -97,15 +97,20 @@ export async function PUT(request: NextRequest) {
   const mfaClientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   const mfaAccountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!mfaClientKey || !mfaAccountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  const clientAttempts = await recordFailedAdminAuthAttempt(mfaClientKey, 15 * 60);
+  const accountAttempts = await recordFailedAdminAuthAttempt(mfaAccountKey, 15 * 60);
+  if (clientAttempts > 5 || accountAttempts > 5) {
+    return NextResponse.json({ error: "Authenticator enrollment temporarily locked" }, {
+      status: 429, headers: { ...HEADERS, "Retry-After": "900" },
+    });
+  }
   try {
     const secret = decryptTotpSecret(credential.encryptedSecret);
     const counter = getTotpCounterForCode(secret, body.code);
     if (counter === null) {
       await auditAdminAuthEvent(request, "totp_enrollment", false);
       const attempts = await recordAdminTotpEnrollmentFailure();
-      const ipAttempts = await recordFailedAdminAuthAttempt(mfaClientKey, 15 * 60);
-      const accountAttempts = await recordFailedAdminAuthAttempt(mfaAccountKey, 15 * 60);
-      const locked = attempts >= 5 || ipAttempts > 5 || accountAttempts > 5;
+      const locked = attempts >= 5;
       return NextResponse.json({ error: locked ? "Authenticator enrollment temporarily locked. Sign in again later." : "Invalid or expired authenticator code" }, {
         status: locked ? 429 : 401,
         headers: { ...HEADERS, ...(locked ? { "Retry-After": "900" } : {}) },
