@@ -11,31 +11,30 @@ function subscribeToHash(callback: () => void) {
 function getHashSnapshot() { return window.location.hash; }
 function getServerHashSnapshot() { return "__server__"; }
 
+type AttemptState = {
+  token: string;
+  status: "verifying" | "invalid";
+  error: string;
+};
+
 export default function AdminEmailConfirmPage() {
   const router = useRouter();
   const hash = useSyncExternalStore(subscribeToHash, getHashSnapshot, getServerHashSnapshot);
   const hashToken = hash ? new URLSearchParams(hash.slice(1)).get("token") ?? "" : "";
-  const token = hashToken;
-  const validToken = token.length >= 40 && token.length <= 128;
-  const [status, setStatus] = useState<"verifying" | "invalid" | null>(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    setStatus(null);
-    setError("");
-  }, [hashToken]);
+  const validToken = hashToken.length >= 40 && hashToken.length <= 128;
+  const [attempt, setAttempt] = useState<AttemptState | null>(null);
+  const status = attempt?.token === hashToken ? attempt.status : null;
+  const error = attempt?.token === hashToken ? attempt.error : "";
 
   async function continueSignIn() {
     const oneTimeToken = hashToken;
     if (!oneTimeToken || oneTimeToken.length < 40 || oneTimeToken.length > 128) {
-      setStatus("invalid");
-      setError("This sign-in link is invalid, expired, or already used.");
+      setAttempt({ token: oneTimeToken, status: "invalid", error: "This sign-in link is invalid, expired, or already used." });
       return;
     }
     // Remove the one-time token from browser history before sending it.
     window.history.replaceState(null, "", window.location.pathname);
-    setStatus("verifying");
-    setError("");
+    setAttempt({ token: oneTimeToken, status: "verifying", error: "" });
     try {
       const response = await fetch("/api/admin/email-link", {
         method: "PUT",
@@ -47,8 +46,11 @@ export default function AdminEmailConfirmPage() {
       if (!response.ok) throw new Error(result.error ?? "Sign-in link is invalid or expired.");
       router.push("/admin/mfa");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to verify sign-in link.");
-      setStatus("invalid");
+      setAttempt({
+        token: oneTimeToken,
+        status: "invalid",
+        error: cause instanceof Error ? cause.message : "Unable to verify sign-in link.",
+      });
     }
   }
 
