@@ -77,6 +77,8 @@ jobs:
   vercel-preview:
     name: Vercel Preview deployment (CI)
     if: github.event_name == 'pull_request'
+    environment:
+      name: production
     needs:
       - unit
       - browser
