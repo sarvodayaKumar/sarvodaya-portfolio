@@ -74,3 +74,47 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+
+  vercel-dry-run:
+    name: Vercel deployment validation (dry run)
+    if: github.event_name == 'pull_request'
+    needs:
+      - unit
+      - browser
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@65.12.1
+
+      - name: Require Vercel token
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::Add VERCEL_TOKEN as a GitHub Actions repository secret to enable Vercel dry-run validation."
+            exit 1
+          fi
+
+      - name: Link Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel link --yes --project sarvodaya-kumar --scope sarvodaya-portfolio --token="$VERCEL_TOKEN"
+
+      - name: Pull Preview environment configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+
+      - name: Build with Vercel (dry run; does not deploy)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --token="$VERCEL_TOKEN"
