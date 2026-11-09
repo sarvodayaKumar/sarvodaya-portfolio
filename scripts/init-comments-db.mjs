@@ -42,6 +42,16 @@ await sql`
 `;
 await sql`CREATE INDEX IF NOT EXISTS admin_auth_attempts_window_idx ON admin_auth_attempts (window_started_at)`;
 await sql`
+  CREATE TABLE IF NOT EXISTS admin_mfa_credentials (
+    admin_id TEXT PRIMARY KEY CHECK (admin_id = 'primary'),
+    encrypted_secret TEXT NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT false,
+    last_used_counter BIGINT NOT NULL DEFAULT -1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )
+`;
+await sql`
   CREATE TABLE IF NOT EXISTS site_analytics_daily (
     day DATE NOT NULL,
     path TEXT NOT NULL,
@@ -61,4 +71,4 @@ await sql`
 await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
 await sql`DELETE FROM site_analytics_daily WHERE day < CURRENT_DATE - INTERVAL '90 days'`;
 
-console.log("comments, admin_sessions, admin_auth_attempts, and site_analytics tables ready.");
+console.log("comments, admin_sessions, admin_auth_attempts, admin_mfa_credentials, and site_analytics tables ready.");
