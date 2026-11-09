@@ -84,6 +84,7 @@ await sql`
   )
 `;
 await sql`ALTER TABLE admin_mfa_credentials ADD COLUMN IF NOT EXISTS pending_attempts INTEGER NOT NULL DEFAULT 0`;
+await sql`ALTER TABLE admin_mfa_credentials ADD COLUMN IF NOT EXISTS recovery_code_hashes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`;
 await sql`
   CREATE TABLE IF NOT EXISTS site_analytics_daily (
     day DATE NOT NULL,
