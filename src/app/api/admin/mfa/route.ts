@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   disableAdminTotp, enableAdminTotp, getAdminTotpCredential, getRecentAdminMfaSession,
-  clearAdminAuthAttempts, getAdminAuthAttempts, getValidAdminMfaChallenge, getValidAdminSession,
+  getAdminAuthAttempts, getValidAdminMfaChallenge, getValidAdminSession,
   recordFailedAdminAuthAttempt, recordAdminTotpEnrollmentFailure,
   savePendingAdminTotpSecret,
 } from "@/lib/db";
