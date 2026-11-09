@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-test("homepage navigation reaches the blog index and a published post", async ({ page }) => {
+test("homepage navigation reaches the blog index and a published post", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "covered by the desktop browser project");
   await page.goto("/");
   await expect(page.getByRole("navigation")).toBeVisible();
 
