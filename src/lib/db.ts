@@ -342,3 +342,59 @@ export async function recordAdminTotpEnrollmentFailure(): Promise<number> {
   `;
   return Number(rows[0]?.pending_attempts ?? 5);
 }
+
+
+/** Store a short-lived email OTP for an existing MFA login challenge; at most three sends. */
+export async function createAdminEmailOtpChallenge(challengeHash: string, codeHash: string, expiresAt: Date): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    INSERT INTO admin_email_otp_challenges (challenge_hash, code_hash, expires_at, attempts, sends)
+    SELECT token_hash, ${codeHash}, ${expiresAt.toISOString()}, 0, 1
+    FROM admin_mfa_challenges
+    WHERE token_hash = ${challengeHash} AND expires_at > now() AND attempts < 5
+    ON CONFLICT (challenge_hash) DO UPDATE SET
+      code_hash = EXCLUDED.code_hash,
+      expires_at = EXCLUDED.expires_at,
+      attempts = 0,
+      sends = admin_email_otp_challenges.sends + 1
+    WHERE admin_email_otp_challenges.sends < 3
+    RETURNING challenge_hash
+  `;
+  return rows.length === 1;
+}
+
+export async function recordAdminEmailOtpFailure(challengeHash: string): Promise<number> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE admin_email_otp_challenges
+    SET attempts = LEAST(attempts + 1, 5)
+    WHERE challenge_hash = ${challengeHash} AND expires_at > now()
+    RETURNING attempts
+  `;
+  return Number(rows[0]?.attempts ?? 5);
+}
+
+/** Atomically consume both the email OTP and its parent MFA challenge. */
+export async function consumeAdminEmailOtpChallenge(challengeHash: string, codeHash: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    WITH consumed_otp AS (
+      DELETE FROM admin_email_otp_challenges
+      WHERE challenge_hash = ${challengeHash}
+        AND code_hash = ${codeHash}
+        AND expires_at > now()
+        AND attempts < 5
+      RETURNING challenge_hash
+    ),
+    consumed_challenge AS (
+      DELETE FROM admin_mfa_challenges
+      WHERE token_hash = ${challengeHash}
+        AND expires_at > now()
+        AND attempts < 5
+        AND EXISTS (SELECT 1 FROM consumed_otp)
+      RETURNING token_hash
+    )
+    SELECT token_hash FROM consumed_challenge
+  `;
+  return rows.length === 1;
+}
