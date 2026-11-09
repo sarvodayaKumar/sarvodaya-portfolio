@@ -15,7 +15,9 @@
     "resume:watch": "node scripts/sync-resume.mjs --watch",
     "db:init-comments": "node scripts/init-comments-db.mjs",
     "blog:generate": "node scripts/generate-daily-post.mjs",
-    "test": "node --experimental-strip-types --test"
+    "test": "node --experimental-strip-types --test",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
