@@ -74,20 +74,27 @@ function totpAt(secret: Uint8Array, counter: number): string {
   return String(binary % (10 ** TOTP_DIGITS)).padStart(TOTP_DIGITS, "0");
 }
 
-/** RFC 6238 SHA-1 TOTP with a bounded +/- one-step clock-skew window. */
-export function verifyTotpCode(secret: string, code: string, now = Date.now(), window = 1): boolean {
-  if (!/^\d{6}$/.test(code) || !Number.isFinite(now) || !Number.isInteger(window) || window < 0 || window > 1) return false;
+/** Return the matched RFC 6238 time-step so callers can atomically prevent replay. */
+export function getTotpCounterForCode(secret: string, code: string, now = Date.now(), window = 1): number | null {
+  if (!/^\d{6}$/.test(code) || !Number.isFinite(now) || !Number.isInteger(window) || window < 0 || window > 1) return null;
   let key: Buffer;
-  try { key = decodeBase32(secret); } catch { return false; }
-  if (key.length < 16) return false;
+  try { key = decodeBase32(secret); } catch { return null; }
+  if (key.length < 16) return null;
   const counter = Math.floor(now / 1000 / TOTP_STEP_SECONDS);
   const candidate = Buffer.from(code);
+  let matchedCounter: number | null = null;
   for (let offset = -window; offset <= window; offset += 1) {
-    if (counter + offset < 0) continue;
-    const expected = Buffer.from(totpAt(key, counter + offset));
-    if (candidate.length === expected.length && timingSafeEqual(candidate, expected)) return true;
+    const step = counter + offset;
+    if (step < 0) continue;
+    const expected = Buffer.from(totpAt(key, step));
+    if (candidate.length === expected.length && timingSafeEqual(candidate, expected)) matchedCounter = step;
   }
-  return false;
+  return matchedCounter;
+}
+
+/** RFC 6238 SHA-1 TOTP with a bounded +/- one-step clock-skew window. */
+export function verifyTotpCode(secret: string, code: string, now = Date.now(), window = 1): boolean {
+  return getTotpCounterForCode(secret, code, now, window) !== null;
 }
 
 function getEncryptionKey(keyHex = process.env.ADMIN_TOTP_ENCRYPTION_KEY): Buffer {
