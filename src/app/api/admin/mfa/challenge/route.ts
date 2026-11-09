@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  consumeAdminMfaChallenge, consumeAdminTotpCounter, createAdminSession,
-  getAdminTotpCredential, getValidAdminMfaChallenge, recordAdminMfaChallengeFailure,
-  revokeAdminSession,
+  completeAdminMfaChallenge, createAdminSession, getAdminTotpCredential,
+  getValidAdminMfaChallenge, recordAdminMfaChallengeFailure, revokeAdminSession,
 } from "@/lib/db";
 import { createSessionToken, hashSessionToken, isSameOrigin } from "@/lib/admin-session";
 import { decryptTotpSecret, getTotpCounterForCode, hashMagicLinkToken } from "@/lib/admin-mfa";
@@ -53,11 +52,9 @@ export async function POST(request: NextRequest) {
     if (attempts >= 5) response.cookies.set(COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/api/admin/mfa", maxAge: 0 });
     return response;
   }
-  if (!(await consumeAdminTotpCounter(counter))) {
-    await recordAdminMfaChallengeFailure(challengeHash);
-    return NextResponse.json({ error: "Authenticator code has already been used" }, { status: 401, headers: HEADERS });
+  if (!(await completeAdminMfaChallenge(challengeHash, counter))) {
+    return NextResponse.json({ error: "Authenticator code has already been used or challenge expired" }, { status: 401, headers: HEADERS });
   }
-  await consumeAdminMfaChallenge(challengeHash);
   const priorSession = request.cookies.get("admin_session")?.value;
   if (priorSession) await revokeAdminSession(hashSessionToken(priorSession));
   const token = createSessionToken();
