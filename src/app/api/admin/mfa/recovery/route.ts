@@ -1,3 +1,4 @@
+import { readLimitedRequestBody } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { auditAdminAuthEvent } from "@/lib/admin-audit";
 import {
@@ -45,10 +46,8 @@ function clearChallengeCookie(response: NextResponse) {
 }
 
 async function readBody(request: NextRequest): Promise<{ code?: unknown } | null> {
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 1024) return null;
-  const raw = await request.text();
-  if (raw.length > 1024) return null;
+  const raw = await readLimitedRequestBody(request, 1024);
+  if (raw === null) return null;
   try { return JSON.parse(raw) as { code?: unknown }; } catch { return null; }
 }
 
