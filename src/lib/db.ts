@@ -463,16 +463,28 @@ export async function completeAdminMfaRecoveryChallenge(challengeHash: string, r
   return rows.length === 1;
 }
 
-/** Disable authenticator only after a fresh TOTP proof; callers revoke all sessions. */
-export async function disableAdminTotp(counter: number): Promise<boolean> {
-  if (!Number.isSafeInteger(counter) || counter < 0) return false;
+/** Disable after a recent MFA-assured session plus password reauthentication. */
+export async function disableAdminTotp(): Promise<boolean> {
   const sql = getSql();
   const rows = await sql`
     UPDATE admin_mfa_credentials
-    SET enabled = false, recovery_code_hashes = ARRAY[]::TEXT[], pending_expires_at = NULL,
-      last_used_counter = ${counter}, updated_at = now()
-    WHERE admin_id = 'primary' AND enabled = true AND last_used_counter < ${counter}
+    SET enabled = false, recovery_code_hashes = ARRAY[]::TEXT[], pending_expires_at = NULL, updated_at = now()
+    WHERE admin_id = 'primary' AND enabled = true
     RETURNING admin_id
+  `;
+  return rows.length === 1;
+}
+
+export async function getRecentAdminMfaSession(tokenHash: string, maxAgeSeconds: number): Promise<boolean> {
+  if (!Number.isInteger(maxAgeSeconds) || maxAgeSeconds < 1 || maxAgeSeconds > 900) return false;
+  const sql = getSql();
+  const rows = await sql`
+    SELECT 1 FROM admin_sessions
+    WHERE token_hash = ${tokenHash}
+      AND mfa_verified = true
+      AND expires_at > now()
+      AND created_at > now() - make_interval(secs => ${maxAgeSeconds})
+    LIMIT 1
   `;
   return rows.length === 1;
 }
