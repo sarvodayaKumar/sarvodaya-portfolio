@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import bcrypt from "bcryptjs";
 import {
   authorizeAdminSession, createSessionToken, hashSessionToken,
-  getAdminAuthAccountKey, getAdminAuthClientKey, getAdminCredentialsFromBody, isSameOrigin,
+  getAdminAuthAccountKey, getAdminAuthClientKey, getAdminCredentialsFromBody,
+  getAdminMfaAccountKey, getAdminMfaClientKey, isSameOrigin,
   safeEqual, verifyAdminPassword,
 } from "../src/lib/admin-session.ts";
 
@@ -41,6 +42,20 @@ test("account lockout keys are stable, keyed, and do not expose the account iden
   assert.equal(first, getAdminAuthAccountKey("admin@example.test", pepper));
   assert.notEqual(first, getAdminAuthAccountKey("other@example.test", pepper));
   assert.equal(getAdminAuthAccountKey("admin@example.test", "short"), null);
+});
+
+test("MFA throttling uses independent keyed IP and account buckets", () => {
+  const pepper = "p".repeat(32);
+  const request = new Request("https://example.test/api/admin/mfa", { headers: { "x-vercel-forwarded-for": "203.0.113.8" } });
+  const passwordIpKey = getAdminAuthClientKey(request, pepper);
+  const mfaIpKey = getAdminMfaClientKey(request, pepper);
+  assert.match(mfaIpKey, /^[a-f0-9]{64}$/);
+  assert.notEqual(passwordIpKey, mfaIpKey);
+  const passwordAccountKey = getAdminAuthAccountKey("admin@example.test", pepper);
+  const mfaAccountKey = getAdminMfaAccountKey("admin@example.test", pepper);
+  assert.notEqual(passwordAccountKey, mfaAccountKey);
+  assert.equal(getAdminMfaClientKey(request, "short"), null);
+  assert.equal(getAdminMfaAccountKey("admin@example.test", "short"), null);
 });
 
 test("admin auth client keys require a strong pepper and validated trusted proxy IP", () => {
