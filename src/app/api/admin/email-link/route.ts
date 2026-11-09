@@ -13,8 +13,8 @@ import {
 } from "@/lib/admin-mfa";
 import {
   createSessionToken,
-  getAdminAuthAccountKey,
-  getAdminAuthClientKey,
+  getAdminMfaAccountKey,
+  getAdminMfaClientKey,
   hashSessionToken,
   isSameOrigin,
   safeEqual,
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
 
   const configuredEmail = process.env.ADMIN_USERNAME?.trim().toLowerCase();
   const suppliedEmail = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-  const clientKey = getAdminAuthClientKey(request, process.env.ADMIN_AUTH_PEPPER);
-  const accountKey = getAdminAuthAccountKey(configuredEmail ?? "primary", process.env.ADMIN_AUTH_PEPPER);
+  const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
+  const accountKey = getAdminMfaAccountKey(configuredEmail ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
 
   let attempts = 0;
