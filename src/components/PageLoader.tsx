@@ -22,6 +22,11 @@ export default function PageLoader({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (ready) return;
+    if (reducedMotion) {
+      document.body.style.overflow = "";
+      return;
+    }
+
     let cancelled = false;
     let current = 10;
     document.body.style.overflow = "hidden";
@@ -42,14 +47,6 @@ export default function PageLoader({ children }: { children: React.ReactNode }) 
         document.body.style.overflow = "";
       }, 380);
     };
-
-    if (reducedMotion) {
-      window.clearInterval(tick);
-      setVisible(false);
-      setReady(true);
-      document.body.style.overflow = "";
-      return;
-    }
 
     const hold = new Promise<void>((resolve) => {
       window.setTimeout(resolve, 1400);
