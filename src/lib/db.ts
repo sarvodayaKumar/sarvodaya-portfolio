@@ -222,3 +222,48 @@ export async function getSiteAnalytics(days = 30) {
     topReferrers,
   };
 }
+
+/** Return the single administrator's encrypted TOTP credential, if configured. */
+export async function getAdminTotpCredential(): Promise<{ encryptedSecret: string; enabled: boolean; lastUsedCounter: number } | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT encrypted_secret, enabled, last_used_counter
+    FROM admin_mfa_credentials WHERE admin_id = 'primary' LIMIT 1
+  `;
+  if (!rows.length) return null;
+  return { encryptedSecret: String(rows[0].encrypted_secret), enabled: rows[0].enabled === true, lastUsedCounter: Number(rows[0].last_used_counter) };
+}
+
+/** Replace an unconfirmed enrollment secret; it grants no MFA assurance until confirmed. */
+export async function savePendingAdminTotpSecret(encryptedSecret: string): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO admin_mfa_credentials (admin_id, encrypted_secret, enabled, last_used_counter)
+    VALUES ('primary', ${encryptedSecret}, false, -1)
+    ON CONFLICT (admin_id) DO UPDATE SET encrypted_secret = EXCLUDED.encrypted_secret,
+      enabled = false, last_used_counter = -1, updated_at = now()
+  `;
+}
+
+/** Activate enrollment only after the user proves possession of the authenticator. */
+export async function enableAdminTotp(counter: number): Promise<boolean> {
+  if (!Number.isSafeInteger(counter) || counter < 0) return false;
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE admin_mfa_credentials SET enabled = true, last_used_counter = ${counter}, updated_at = now()
+    WHERE admin_id = 'primary' AND enabled = false RETURNING admin_id
+  `;
+  return rows.length === 1;
+}
+
+/** Atomic compare-and-set prevents the same TOTP time-step from being replayed. */
+export async function consumeAdminTotpCounter(counter: number): Promise<boolean> {
+  if (!Number.isSafeInteger(counter) || counter < 0) return false;
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE admin_mfa_credentials SET last_used_counter = ${counter}, updated_at = now()
+    WHERE admin_id = 'primary' AND enabled = true AND last_used_counter < ${counter}
+    RETURNING admin_id
+  `;
+  return rows.length === 1;
+}
