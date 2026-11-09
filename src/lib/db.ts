@@ -174,11 +174,17 @@ export async function getSiteAnalytics(days = 30) {
   const boundedDays = Math.max(1, Math.min(30, Math.trunc(days) || 30));
   const sql = getSql();
   const dailyRows = await sql`
-    SELECT to_char(day, 'YYYY-MM-DD') AS day, SUM(page_views)::int AS views
-    FROM site_analytics_daily
-    WHERE day >= CURRENT_DATE - (${boundedDays - 1}) AND day <= CURRENT_DATE
-    GROUP BY day
-    ORDER BY day ASC
+    SELECT to_char(calendar.day, 'YYYY-MM-DD') AS day,
+      COALESCE(SUM(analytics.page_views), 0)::int AS views
+    FROM generate_series(
+      CURRENT_DATE - ${boundedDays - 1},
+      CURRENT_DATE,
+      INTERVAL '1 day'
+    ) AS calendar(day)
+    LEFT JOIN site_analytics_daily AS analytics
+      ON analytics.day = calendar.day::date
+    GROUP BY calendar.day
+    ORDER BY calendar.day ASC
   `;
   const pageRows = await sql`
     SELECT path AS label, SUM(page_views)::int AS views

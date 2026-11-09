@@ -93,9 +93,9 @@ export default function AdminAnalyticsPanel() {
               <p className="mt-2 text-xs text-muted">Aggregated page-view events</p>
             </article>
             <article className="rounded-2xl border border-border bg-card p-5">
-              <p className="text-xs text-muted">Tracked days</p>
-              <p className="mt-3 text-3xl font-semibold tabular-nums text-foreground">{data.daily.length}</p>
-              <p className="mt-2 text-xs text-muted">Days with recorded traffic</p>
+              <p className="text-xs text-muted">Days in period</p>
+              <p className="mt-3 text-3xl font-semibold tabular-nums text-foreground">{data.periodDays}</p>
+              <p className="mt-2 text-xs text-muted">Calendar days included in this view</p>
             </article>
           </div>
 
@@ -106,7 +106,7 @@ export default function AdminAnalyticsPanel() {
                 <div className="mt-5 flex h-36 items-end gap-1" role="img" aria-label="Daily page views for the last 30 days">
                   {data.daily.map((item) => (
                     <div key={item.day} className="group flex h-full min-w-0 flex-1 flex-col justify-end" title={`${formatDay(item.day)}: ${item.views} views`}>
-                      <div className="w-full rounded-t bg-accent/80" style={{ height: `${Math.max(2, item.views / maxViews * 100)}%` }} />
+                      <div className="w-full rounded-t bg-accent/80" style={{ height: item.views === 0 ? "0%" : `${Math.max(2, item.views / maxViews * 100)}%` }} />
                     </div>
                   ))}
                 </div>

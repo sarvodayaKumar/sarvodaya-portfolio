@@ -54,7 +54,12 @@ export function normalizeAnalyticsPath(value: unknown): string | null {
 
 export function normalizeReferrerHost(value: unknown): string | null {
   if (value === undefined || value === null || value === "") return "(direct)";
-  if (typeof value !== "string" || value.length > MAX_HOST_LENGTH || value.includes("://")) return null;
+  if (
+    typeof value !== "string" ||
+    value.length > MAX_HOST_LENGTH ||
+    value.includes("://") ||
+    value.includes(":")
+  ) return null;
 
   try {
     const parsed = new URL(`https://${value}`);
