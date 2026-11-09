@@ -1,17 +1,26 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { motion, useMotionValue, useSpring } from "framer-motion";
 import { useTheme } from "./ThemeProvider";
 import { useIntro } from "./IntroContext";
 
 const Scene3D = dynamic(() => import("./Scene3D"), { ssr: false });
 
+const MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+function subscribeMotionPreference(callback: () => void) {
+  const media = window.matchMedia(MOTION_QUERY);
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+function getMotionPreference() { return !window.matchMedia(MOTION_QUERY).matches; }
+function getServerMotionPreference() { return false; }
+
 export default function AmbientBackground() {
   const { theme } = useTheme();
   const { ready } = useIntro();
-  const [enabled, setEnabled] = useState(false);
+  const enabled = useSyncExternalStore(subscribeMotionPreference, getMotionPreference, getServerMotionPreference);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const sx = useSpring(x, { stiffness: 35, damping: 22 });
@@ -19,8 +28,6 @@ export default function AmbientBackground() {
   const light = theme === "light";
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setEnabled(!media.matches);
     const onMove = (event: MouseEvent) => {
       x.set(event.clientX);
       y.set(event.clientY);
