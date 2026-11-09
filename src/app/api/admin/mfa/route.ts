@@ -1,3 +1,4 @@
+import { readLimitedRequestBody } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import {
   disableAdminTotp, enableAdminTotp, getAdminTotpCredential, getRecentAdminMfaSession,
@@ -54,10 +55,6 @@ export async function POST(request: NextRequest) {
       status: 429, headers: { ...HEADERS, "Retry-After": "900" },
     });
   }
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
-  const rawBody = await request.text();
-  if (rawBody.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   const credential = await getAdminTotpCredential();
   if (credential?.enabled) return NextResponse.json({ error: "Authenticator is already enabled" }, { status: 409, headers: HEADERS });
   let secret: string;
@@ -84,10 +81,8 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
   if (!(await signedIn(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: HEADERS });
-  const bodyLength = Number(request.headers.get("content-length") ?? 0);
-  if (bodyLength > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
-  const rawBody = await request.text();
-  if (rawBody.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const rawBody = await readLimitedRequestBody(request, 1024);
+  if (rawBody === null) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   const body = await (async () => { try { return JSON.parse(rawBody) as { code?: unknown }; } catch { return null; } })();
   if (!body || typeof body.code !== "string" || !/^\d{6}$/.test(body.code)) {
     return NextResponse.json({ error: "Enter a valid six-digit code" }, { status: 400, headers: HEADERS });
@@ -137,10 +132,8 @@ export async function DELETE(request: NextRequest) {
   if (!(await authorizeAdminSession(session, (tokenHash) => getRecentAdminMfaSession(tokenHash, 10 * 60)))) {
     return NextResponse.json({ error: "Complete MFA sign-in again before changing authenticator settings" }, { status: 401, headers: HEADERS });
   }
-  const bodyLength = Number(request.headers.get("content-length") ?? 0);
-  if (bodyLength > 2048) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
-  const rawBody = await request.text();
-  if (rawBody.length > 2048) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const rawBody = await readLimitedRequestBody(request, 2048);
+  if (rawBody === null) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   let body: { password?: unknown } | null = null;
   try { body = JSON.parse(rawBody) as { password?: unknown }; } catch { /* generic invalid request */ }
   if (!body || typeof body.password !== "string") {
