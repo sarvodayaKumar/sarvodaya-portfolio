@@ -3,7 +3,7 @@ type ResendResponse = { id?: string; message?: string };
 export async function sendAdminMfaEmailCode(code: string): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.ADMIN_EMAIL_FROM;
-  const recipient = process.env.ADMIN_USERNAME;
+  const recipient = process.env.ADMIN_USERNAME?.trim();
   if (!apiKey || !from || !recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
     return false;
   }
