@@ -97,3 +97,11 @@ DNS:
 
 The homepage Blog block updates on refresh in `npm run dev` or the next production build.
 
+
+## Vercel deployment workflow
+
+Pull requests run a Vercel CLI build-only validation after the unit and browser/accessibility suites pass. The workflow links the existing Vercel project, pulls its Preview environment variables, and runs `vercel build`; it does **not** run `vercel deploy` and does not publish a Preview deployment.
+
+Add a `VERCEL_TOKEN` secret under **GitHub → Settings → Secrets and variables → Actions** for this repository. The token needs access to the `sarvodaya-portfolio` Vercel team and the `sarvodaya-kumar` project.
+
+Vercel Preview deployments are disabled for this project. Production deployment remains handled by Vercel's Git integration when a commit reaches `main` after the pull request is merged. Keep the `main` branch protected and require the unit, Playwright/axe, and Vercel dry-run checks before allowing a merge.
