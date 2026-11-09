@@ -70,12 +70,13 @@ def main() -> int:
     recipient = os.environ.get("EMAIL_TO", expected_account).strip()
 
     if not expected_account or not client_id or not refresh_token:
+        # Notifications are optional; scanner jobs remain the required security gates.
+        # Missing mail credentials must never turn a successful security scan into a failed CI run.
         print(
-            "::error::Daily email is not configured. Set OUTLOOK_EMAIL and add "
-            "MS_GRAPH_CLIENT_ID and MS_GRAPH_REFRESH_TOKEN as GitHub Actions secrets.",
-            file=sys.stderr,
+            "::warning::Daily security email skipped: MS_GRAPH_CLIENT_ID and "
+            "MS_GRAPH_REFRESH_TOKEN GitHub Actions secrets are not configured."
         )
-        return 1
+        return 0
 
     results = {
         "CodeQL": os.environ.get("CODEQL_RESULT", "unknown"),
