@@ -12,6 +12,20 @@ The repository runs open-source security checks through GitHub Actions. Scans ru
 
 Third-party GitHub Actions in the security workflow are pinned to full commit SHAs. Review and update those pins deliberately when upgrading the actions.
 
+## Daily email notification
+
+The scheduled 11:00 AM IST run emails the scanner results and dependency severity counts to `sarvodaya.kumar@outlook.com`.
+
+Configure these encrypted GitHub Actions repository secrets under **Settings → Secrets and variables → Actions → New repository secret**:
+- `SMTP_USERNAME`: the sending Outlook mailbox username.
+- `SMTP_PASSWORD`: the mailbox password or app password accepted by the account's SMTP configuration.
+
+Optional repository variables:
+- `SMTP_SERVER`: defaults to `smtp-mail.outlook.com`.
+- `SMTP_PORT`: defaults to `587` (STARTTLS).
+
+Do not paste SMTP credentials into chat, source files, workflow YAML, or issue comments. Outlook account security settings may restrict SMTP AUTH; if the mailbox does not permit SMTP AUTH, use an approved SMTP relay and set `SMTP_SERVER` / `SMTP_PORT` accordingly. The daily notification job fails visibly when credentials are missing or email delivery fails.
+
 ## Severity policy
 
 - **Critical:** block the workflow; begin remediation immediately and rotate any exposed credential.
@@ -35,6 +49,6 @@ Do not add credentials, tokens, or other secret values to issues or workflow log
 
 ## Reports and limitations
 
-The dependency workflow uploads `npm-audit.json` even when the severity gate fails. CodeQL results are published to GitHub Code Scanning, and Gitleaks provides a job summary and finding artifact when applicable.
+The dependency workflow uploads `npm-audit.json` even when the severity gate fails. CodeQL results are published to GitHub Code Scanning, and Gitleaks provides a job summary and finding artifact when applicable. The daily email summarizes job status and npm severity counts; detailed findings remain in GitHub Actions artifacts and Code Scanning.
 
 These scanners identify known classes of issues and known published dependency advisories. A clean run means no findings were detected by these configured checks; it is not a guarantee that the portfolio has zero vulnerabilities. Continue manual review, timely patching, and secure deployment practices.
