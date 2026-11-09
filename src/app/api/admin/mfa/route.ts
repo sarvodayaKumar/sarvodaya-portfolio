@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   disableAdminTotp, enableAdminTotp, getAdminTotpCredential, getRecentAdminMfaSession,
-  clearAdminAuthAttempts, getValidAdminMfaChallenge, getValidAdminSession,
+  clearAdminAuthAttempts, getAdminAuthAttempts, getValidAdminMfaChallenge, getValidAdminSession,
   recordFailedAdminAuthAttempt, recordAdminTotpEnrollmentFailure, revokeAllAdminSessions,
   savePendingAdminTotpSecret,
 } from "@/lib/db";
@@ -45,6 +45,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
   if (!(await signedIn(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: HEADERS });
+  const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
+  const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
+  if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  const throttle = await getAdminAuthAttempts(clientKey, accountKey, 15 * 60);
+  if (throttle.clientAttempts >= 5 || throttle.accountAttempts >= 5) {
+    return NextResponse.json({ error: "Authenticator enrollment temporarily locked" }, {
+      status: 429, headers: { ...HEADERS, "Retry-After": "900" },
+    });
+  }
   const length = Number(request.headers.get("content-length") ?? 0);
   if (length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   const rawBody = await request.text();
