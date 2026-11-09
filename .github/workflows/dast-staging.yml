@@ -53,17 +53,10 @@ jobs:
           cmd_options: >-
             -m 3
             -T 10
-            -l WARN
             -z "-config spider.maxDepth=3 -config spider.skipURLString=logout,signout,delete,destroy,remove,moderation,approve,reject"
           allow_issue_writing: false
-      - name: Upload ZAP reports
+          fail_action: false
+          artifact_name: zap-staging-dast-reports
+      - name: Enforce high-severity gate
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-staging-dast-reports
-          path: |
-            report.html
-            report.json
-            report.md
-          if-no-files-found: warn
-          retention-days: 14
+        run: node scripts/check-zap-report.mjs report_json.json
