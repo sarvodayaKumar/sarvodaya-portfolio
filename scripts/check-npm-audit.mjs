@@ -21,9 +21,14 @@ const high = Number(counts.high ?? 0);
 const moderate = Number(counts.moderate ?? 0);
 const low = Number(counts.low ?? 0);
 const info = Number(counts.info ?? 0);
+const summary = `Critical: ${critical} | High: ${high} | Moderate: ${moderate} | Low: ${low} | Info: ${info}`;
 
 console.log("Dependency vulnerability summary");
-console.log(`Critical: ${critical} | High: ${high} | Moderate: ${moderate} | Low: ${low} | Info: ${info}`);
+console.log(summary);
+
+if (process.env.GITHUB_OUTPUT) {
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `summary=${summary}\n`);
+}
 
 if (critical > 0 || high > 0) {
   console.error("Security gate failed: remediate all high and critical dependency vulnerabilities.");
