@@ -57,16 +57,16 @@ export async function POST(request: NextRequest) {
   });
 
   const code = generateEmailOtp();
+  if (!(await sendAdminMfaEmailCode(code))) {
+    await auditAdminAuthEvent(request, "email_otp", false);
+    return NextResponse.json({ error: "Email delivery is unavailable. Use your authenticator or try again later." }, { status: 503, headers: HEADERS });
+  }
   const saved = await createAdminEmailOtpChallenge(
     challengeHash,
     hashOneTimeCode(code, "email-mfa"),
     new Date(Date.now() + OTP_TTL_SECONDS * 1000),
   );
   if (!saved) return NextResponse.json({ error: "Email code limit reached. Use your authenticator or sign in again." }, { status: 429, headers: HEADERS });
-  if (!(await sendAdminMfaEmailCode(code))) {
-    await auditAdminAuthEvent(request, "email_otp", false);
-    return NextResponse.json({ error: "Email delivery is unavailable. Use your authenticator or try again later." }, { status: 503, headers: HEADERS });
-  }
   await auditAdminAuthEvent(request, "email_otp", true);
   return NextResponse.json({ ok: true, message: "A one-time code was sent to the administrator email address." }, { headers: HEADERS });
 }
