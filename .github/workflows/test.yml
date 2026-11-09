@@ -1,4 +1,4 @@
-name: Test
+name: CI and CD
 
 on:
   pull_request:
@@ -31,8 +31,7 @@ jobs:
 
   browser:
     name: Playwright and axe regression
-    # Playwright 1.56.1 does not support Ubuntu 26.04 yet.
-    # Pin this job to the supported Ubuntu 24.04 runner image.
+    # Playwright 1.56.1 currently requires a supported Ubuntu runner.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -75,8 +74,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  vercel-dry-run:
-    name: Vercel deployment validation (dry run)
+  vercel-preview:
+    name: Vercel Preview deployment (CI)
     if: github.event_name == 'pull_request'
     needs:
       - unit
@@ -95,12 +94,12 @@ jobs:
       - name: Install pinned Vercel CLI
         run: npm install --global vercel@65.12.1
 
-      - name: Require Vercel token
+      - name: Verify Vercel token is configured
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::Add VERCEL_TOKEN as a GitHub Actions repository secret to enable Vercel dry-run validation."
+            echo "::error::Add VERCEL_TOKEN as a GitHub Actions repository secret."
             exit 1
           fi
 
@@ -114,7 +113,63 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
 
-      - name: Build with Vercel (dry run; does not deploy)
+      - name: Build Preview artifacts
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel build --token="$VERCEL_TOKEN"
+
+      - name: Deploy Preview (only after CI checks pass)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --token="$VERCEL_TOKEN"
+
+  vercel-production:
+    name: Vercel Production deployment (CD)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - unit
+      - browser
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+    steps:
+      - name: Check out merged main
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@65.12.1
+
+      - name: Verify Vercel token is configured
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::Add VERCEL_TOKEN as a GitHub Actions repository secret."
+            exit 1
+          fi
+
+      - name: Link Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel link --yes --project sarvodaya-kumar --scope sarvodaya-portfolio --token="$VERCEL_TOKEN"
+
+      - name: Pull Production environment configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build Production artifacts
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy to Production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
