@@ -47,6 +47,7 @@ await sql`
     encrypted_secret TEXT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT false,
     last_used_counter BIGINT NOT NULL DEFAULT -1,
+    pending_expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )
