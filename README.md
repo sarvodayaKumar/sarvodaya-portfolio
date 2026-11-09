@@ -83,11 +83,10 @@ After enrollment, password sign-in creates only a five-minute, single-use MFA ch
 - **Authentication boundary:** `/api/admin/session` exposes session status, same-origin credential sign-in, and sign-out. `/api/admin/mfa` permits restricted enrollment and reauthenticated disable; `/api/admin/mfa/challenge`, `/api/admin/mfa/email`, and `/api/admin/mfa/recovery` accept only the short-lived challenge cookie and a valid TOTP, email OTP, or recovery code. `/api/admin/email-link` issues and consumes origin-bound passwordless links. These routes expose no stored TOTP secrets.
 - New API routes must be explicitly added to the access-policy test allowlist or protected with `authorizeAdminSession`.
 
-Before enabling enrollment, set `ADMIN_TOTP_ENCRYPTION_KEY` in the deployment environment and run the idempotent database initializer against the target `DATABASE_URL`. The initializer adds MFA credentials, session assurance, email OTP/magic-link challenges, recovery-code hashes, authentication throttles, and redacted audit-event schema:
+Before enabling enrollment, set `ADMIN_TOTP_ENCRYPTION_KEY` and the other admin secrets in Vercel. The idempotent initializer adds MFA credentials, session assurance, email OTP/magic-link challenges, recovery-code hashes, authentication throttles, and redacted audit-event schema.
 
-```bash
-npm run db:init-comments
-```
+- **Production:** use GitHub Actions → **Production database migration (manual)**. It requires the exact confirmation phrase `RUN-PRODUCTION-ADMIN-MFA-MIGRATION`, the `production` GitHub Environment, and the existing `VERCEL_TOKEN` repository secret. The workflow checks out reviewed `main`, pulls only the Production environment, and runs the idempotent initializer. It never deploys the application.
+- **Local development:** pull the intended Development database environment and run `npm run db:init-comments` manually. Never point a local command at Production by accident.
 
 ## What updates from where
 
