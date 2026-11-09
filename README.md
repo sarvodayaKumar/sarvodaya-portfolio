@@ -54,8 +54,9 @@ Configure these **server-only Vercel environment variables** for every environme
 
 - `ADMIN_USERNAME`: administrator username or email.
 - `ADMIN_PASSWORD_HASH`: scrypt password hash generated locally; never store the plaintext password in Vercel or source control.
-- `ADMIN_AUTH_PEPPER`: independent random secret of at least 32 characters, used to HMAC trusted client IPs for login throttling.
-- `DATABASE_URL`: Neon database connection string used for sessions and persistent login throttling.
+- `ADMIN_AUTH_PEPPER`: independent random secret of at least 32 characters, used to HMAC trusted client IPs for login throttling and one-time-code hashes.
+- `ADMIN_TOTP_ENCRYPTION_KEY`: independent 32-byte key encoded as 64 hexadecimal characters; used only by the server to encrypt authenticator secrets with AES-256-GCM. Generate with `openssl rand -hex 32`; keep it separate from `ADMIN_AUTH_PEPPER`.
+- `DATABASE_URL`: Neon database connection string used for sessions, persistent login throttling, and MFA credential storage.
 
 Generate a password hash locally. Use a password of at least 14 characters and do not paste the plaintext into chat, GitHub, or source control:
 
