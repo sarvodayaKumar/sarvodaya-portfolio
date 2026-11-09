@@ -8,6 +8,7 @@ import {
   encryptTotpSecret,
   generateEmailOtp,
   generateTotpSecret,
+  getTotpCounterForCode,
   hashMagicLinkToken,
   hashOneTimeCode,
   verifyOneTimeCode,
@@ -36,6 +37,8 @@ test("TOTP secrets produce standard authenticator provisioning URIs", () => {
 test("RFC 6238 six-digit TOTP is verified only within the allowed clock window", () => {
   // RFC 6238 SHA-1 test vector at 59 seconds, truncated to six digits.
   const secret = encodeBase32(Buffer.from("12345678901234567890"));
+  assert.equal(getTotpCounterForCode(secret, "287082", 59_000, 0), 1);
+  assert.equal(getTotpCounterForCode(secret, "287083", 59_000, 0), null);
   assert.equal(verifyTotpCode(secret, "287082", 59_000, 0), true);
   assert.equal(verifyTotpCode(secret, "287083", 59_000, 0), false);
   assert.equal(verifyTotpCode(secret, "287082", 59_000, 1), true);
