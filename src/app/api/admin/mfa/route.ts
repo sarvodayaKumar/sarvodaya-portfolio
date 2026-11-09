@@ -5,7 +5,7 @@ import {
   recordFailedAdminAuthAttempt, recordAdminTotpEnrollmentFailure, revokeAllAdminSessions,
   savePendingAdminTotpSecret,
 } from "@/lib/db";
-import { authorizeAdminSession, getAdminAuthClientKey, isSameOrigin, verifyAdminPassword } from "@/lib/admin-session";
+import { authorizeAdminSession, getAdminAuthAccountKey, getAdminAuthClientKey, isSameOrigin, verifyAdminPassword } from "@/lib/admin-session";
 import { auditAdminAuthEvent } from "@/lib/admin-audit";
 import {
   buildTotpUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret,
@@ -117,14 +117,17 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Password and current authenticator code are required" }, { status: 400, headers: HEADERS });
   }
   const clientKey = getAdminAuthClientKey(request, process.env.ADMIN_AUTH_PEPPER);
-  if (!clientKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  const accountKey = getAdminAuthAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
+  if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   let attempts = 0;
+  let accountAttempts = 0;
   try {
     attempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
+    accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
   } catch {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   }
-  if (attempts > 5) return NextResponse.json({ error: "Reauthentication temporarily locked" }, {
+  if (attempts > 5 || accountAttempts > 5) return NextResponse.json({ error: "Reauthentication temporarily locked" }, {
     status: 429, headers: { ...HEADERS, "Retry-After": "900" },
   });
   if (!(await verifyAdminPassword(body.password, process.env.ADMIN_PASSWORD_HASH))) {
@@ -148,6 +151,7 @@ export async function DELETE(request: NextRequest) {
   }
   await auditAdminAuthEvent(request, "mfa_disable", true);
   await clearAdminAuthAttempts(clientKey);
+  await clearAdminAuthAttempts(accountKey);
   await revokeAllAdminSessions();
   const response = NextResponse.json({ ok: true, message: "Authenticator disabled. Sign in again and enroll a new factor before using admin APIs." }, { headers: HEADERS });
   response.cookies.set(SESSION_COOKIE, "", {
