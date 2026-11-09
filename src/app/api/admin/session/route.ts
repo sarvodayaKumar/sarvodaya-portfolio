@@ -3,18 +3,25 @@ import {
   createAdminSession,
   getValidAdminSession,
   revokeAdminSession,
+  recordFailedAdminAuthAttempt,
+  clearAdminAuthAttempts,
 } from "@/lib/db";
 import {
   createSessionToken,
   hashSessionToken,
   isSameOrigin,
   verifyAdminToken,
+  getAdminAuthClientKey,
+  getAdminTokenFromBody,
 } from "@/lib/admin-session";
 
 export const runtime = "nodejs";
 
 const COOKIE_NAME = "admin_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
+const AUTH_WINDOW_SECONDS = 15 * 60;
+const MAX_FAILED_AUTH_ATTEMPTS = 5;
+const AUTH_FAILURE = { error: "Unable to authenticate" };
 
 function setSessionCookie(response: NextResponse, token: string) {
   response.cookies.set(COOKIE_NAME, token, {
@@ -39,10 +46,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const clientKey = getAdminAuthClientKey(request, process.env.ADMIN_TOKEN);
+  if (!clientKey) {
+    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503 });
+  }
+
   const body = await request.json().catch(() => null);
-  const token = body && typeof body.token === "string" ? body.token : "";
-  if (token.length > 1024 || !verifyAdminToken(token, process.env.ADMIN_TOKEN)) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  const token = getAdminTokenFromBody(body);
+  if (!token || !verifyAdminToken(token, process.env.ADMIN_TOKEN)) {
+    try {
+      const attempts = await recordFailedAdminAuthAttempt(clientKey, AUTH_WINDOW_SECONDS);
+      if (attempts > MAX_FAILED_AUTH_ATTEMPTS) {
+        return NextResponse.json(AUTH_FAILURE, {
+          status: 429,
+          headers: { "Retry-After": String(AUTH_WINDOW_SECONDS) },
+        });
+      }
+    } catch {
+      return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503 });
+    }
+    return NextResponse.json(AUTH_FAILURE, { status: 401 });
+  }
+
+  try {
+    await clearAdminAuthAttempts(clientKey);
+  } catch {
+    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503 });
   }
 
   const sessionToken = createSessionToken();

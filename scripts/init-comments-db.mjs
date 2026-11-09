@@ -33,6 +33,14 @@ await sql`
   )
 `;
 await sql`CREATE INDEX IF NOT EXISTS admin_sessions_expires_idx ON admin_sessions (expires_at)`;
+await sql`
+  CREATE TABLE IF NOT EXISTS admin_auth_attempts (
+    client_key CHAR(64) PRIMARY KEY,
+    window_started_at TIMESTAMPTZ NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0
+  )
+`;
+await sql`CREATE INDEX IF NOT EXISTS admin_auth_attempts_window_idx ON admin_auth_attempts (window_started_at)`;
 await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
 
-console.log("comments and admin_sessions tables ready.");
+console.log("comments, admin_sessions, and admin_auth_attempts tables ready.");

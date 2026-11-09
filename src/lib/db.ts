@@ -107,6 +107,31 @@ export async function getValidAdminSession(tokenHash: string): Promise<boolean> 
   return rows.length > 0;
 }
 
+export async function recordFailedAdminAuthAttempt(clientKey: string, windowSeconds: number): Promise<number> {
+  const sql = getSql();
+  await sql`DELETE FROM admin_auth_attempts WHERE window_started_at <= now() - make_interval(secs => ${windowSeconds})`;
+  const rows = await sql`
+    INSERT INTO admin_auth_attempts (client_key, window_started_at, attempts)
+    VALUES (${clientKey}, now(), 1)
+    ON CONFLICT (client_key) DO UPDATE SET
+      attempts = CASE
+        WHEN admin_auth_attempts.window_started_at <= now() - make_interval(secs => ${windowSeconds}) THEN 1
+        ELSE admin_auth_attempts.attempts + 1
+      END,
+      window_started_at = CASE
+        WHEN admin_auth_attempts.window_started_at <= now() - make_interval(secs => ${windowSeconds}) THEN now()
+        ELSE admin_auth_attempts.window_started_at
+      END
+    RETURNING attempts
+  `;
+  return Number(rows[0]?.attempts ?? 1);
+}
+
+export async function clearAdminAuthAttempts(clientKey: string): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM admin_auth_attempts WHERE client_key = ${clientKey}`;
+}
+
 export async function revokeAdminSession(tokenHash: string): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM admin_sessions WHERE token_hash = ${tokenHash}`;
