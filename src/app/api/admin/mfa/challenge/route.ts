@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       status: locked ? 429 : 401,
       headers: { ...HEADERS, ...(locked ? { "Retry-After": "900" } : {}) },
     });
-    if (locked) response.cookies.set(COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/api/admin/mfa", maxAge: 0 });
+    if (locked) response.cookies.set(COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/api/admin", maxAge: 0 });
     return response;
   }
   if (!(await completeAdminMfaChallenge(challengeHash, counter))) {
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
   });
   response.cookies.set(COOKIE, "", {
     httpOnly: true, secure: process.env.NODE_ENV === "production",
-    sameSite: "strict", path: "/api/admin/mfa", maxAge: 0,
+    sameSite: "strict", path: "/api/admin", maxAge: 0,
   });
   return response;
 }
