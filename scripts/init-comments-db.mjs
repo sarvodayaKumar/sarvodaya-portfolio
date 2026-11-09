@@ -33,6 +33,16 @@ await sql`
   )
 `;
 await sql`CREATE INDEX IF NOT EXISTS admin_sessions_expires_idx ON admin_sessions (expires_at)`;
+await sql`ALTER TABLE admin_sessions ADD COLUMN IF NOT EXISTS mfa_verified BOOLEAN NOT NULL DEFAULT false`;
+await sql`
+  CREATE TABLE IF NOT EXISTS admin_mfa_challenges (
+    token_hash CHAR(64) PRIMARY KEY,
+    expires_at TIMESTAMPTZ NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0 AND attempts <= 5),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )
+`;
+await sql`CREATE INDEX IF NOT EXISTS admin_mfa_challenges_expires_idx ON admin_mfa_challenges (expires_at)`;
 await sql`
   CREATE TABLE IF NOT EXISTS admin_auth_attempts (
     client_key CHAR(64) PRIMARY KEY,
@@ -70,6 +80,7 @@ await sql`
   )
 `;
 await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
+await sql`DELETE FROM admin_mfa_challenges WHERE expires_at <= now()`;
 await sql`DELETE FROM site_analytics_daily WHERE day < CURRENT_DATE - INTERVAL '90 days'`;
 
 console.log("comments, admin_sessions, admin_auth_attempts, admin_mfa_credentials, and site_analytics tables ready.");
