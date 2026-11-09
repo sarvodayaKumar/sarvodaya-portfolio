@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   disableAdminTotp, enableAdminTotp, getAdminSessionWithMfaPolicy, getAdminTotpCredential,
-  getValidAdminMfaChallenge, getValidAdminSession, recordAdminTotpEnrollmentFailure,
-  revokeAllAdminSessions, savePendingAdminTotpSecret,
+  clearAdminAuthAttempts, getValidAdminMfaChallenge, getValidAdminSession,
+  recordFailedAdminAuthAttempt, recordAdminTotpEnrollmentFailure, revokeAllAdminSessions,
+  savePendingAdminTotpSecret,
 } from "@/lib/db";
-import { authorizeAdminSession, isSameOrigin, verifyAdminPassword } from "@/lib/admin-session";
+import { authorizeAdminSession, getAdminAuthClientKey, isSameOrigin, verifyAdminPassword } from "@/lib/admin-session";
 import {
   buildTotpUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret,
   generateAdminRecoveryCodes, getTotpCounterForCode, hashMagicLinkToken, hashOneTimeCode,
@@ -108,6 +109,17 @@ export async function DELETE(request: NextRequest) {
   if (!body || typeof body.code !== "string" || !/^\d{6}$/.test(body.code) || typeof body.password !== "string") {
     return NextResponse.json({ error: "Password and current authenticator code are required" }, { status: 400, headers: HEADERS });
   }
+  const clientKey = getAdminAuthClientKey(request, process.env.ADMIN_AUTH_PEPPER);
+  if (!clientKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  let attempts = 0;
+  try {
+    attempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
+  } catch {
+    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  }
+  if (attempts > 5) return NextResponse.json({ error: "Reauthentication temporarily locked" }, {
+    status: 429, headers: { ...HEADERS, "Retry-After": "900" },
+  });
   if (!(await verifyAdminPassword(body.password, process.env.ADMIN_PASSWORD_HASH))) {
     return NextResponse.json({ error: "Reauthentication failed" }, { status: 401, headers: HEADERS });
   }
@@ -123,6 +135,7 @@ export async function DELETE(request: NextRequest) {
   if (!(await disableAdminTotp(counter))) {
     return NextResponse.json({ error: "Authenticator code has already been used. Wait for the next code and retry." }, { status: 409, headers: HEADERS });
   }
+  await clearAdminAuthAttempts(clientKey);
   await revokeAllAdminSessions();
   const response = NextResponse.json({ ok: true, message: "Authenticator disabled. Sign in again and enroll a new factor before using admin APIs." }, { headers: HEADERS });
   response.cookies.set(SESSION_COOKIE, "", {
