@@ -347,6 +347,7 @@ export async function recordAdminTotpEnrollmentFailure(): Promise<number> {
 /** Store a short-lived email OTP for an existing MFA login challenge; at most three sends. */
 export async function createAdminEmailOtpChallenge(challengeHash: string, codeHash: string, expiresAt: Date): Promise<boolean> {
   const sql = getSql();
+  await sql`DELETE FROM admin_email_otp_challenges WHERE expires_at <= now()`;
   const rows = await sql`
     INSERT INTO admin_email_otp_challenges (challenge_hash, code_hash, expires_at, attempts, sends)
     SELECT token_hash, ${codeHash}, ${expiresAt.toISOString()}, 0, 1
