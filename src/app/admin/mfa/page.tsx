@@ -61,7 +61,17 @@ export default function AdminMfaPage() {
             body: JSON.stringify({ code }),
           });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error ?? "Code verification failed.");
+      if (!response.ok) {
+        if (mode === "challenge" && response.status === 401) {
+          setError(data.error ?? "Challenge expired. Sign in again.");
+          await refresh();
+          return;
+        }
+        if (mode === "enrollment" && typeof data.error === "string" && /locked|expired/i.test(data.error)) {
+          setEnrollment(null);
+        }
+        throw new Error(data.error ?? "Code verification failed.");
+      }
       setCode("");
       if (mode === "challenge") {
         window.location.assign("/admin");
