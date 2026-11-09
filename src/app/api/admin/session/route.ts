@@ -109,6 +109,8 @@ export async function POST(request: NextRequest) {
     await auditAdminAuthEvent(request, "password_sign_in", true);
     await clearAdminAuthAttempts(clientKey);
     if (accountKey) await clearAdminAuthAttempts(accountKey);
+    const previousSession = request.cookies.get(COOKIE_NAME)?.value;
+    if (previousSession) await revokeAdminSession(hashSessionToken(previousSession));
     const credential = await getAdminTotpCredential();
     if (credential?.enabled) {
       const challengeToken = createEmailMagicLinkToken();
@@ -117,6 +119,7 @@ export async function POST(request: NextRequest) {
         new Date(Date.now() + MFA_CHALLENGE_TTL_SECONDS * 1000)
       );
       const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: RESPONSE_HEADERS });
+      response.cookies.set(COOKIE_NAME, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/api", maxAge: 0 });
       response.cookies.set(MFA_CHALLENGE_COOKIE, challengeToken, {
         httpOnly: true, secure: process.env.NODE_ENV === "production",
         sameSite: "strict", path: "/api/admin/mfa", maxAge: MFA_CHALLENGE_TTL_SECONDS,
@@ -128,6 +131,7 @@ export async function POST(request: NextRequest) {
     await createAdminSession(hashSessionToken(sessionToken), expiresAt, false);
     // Password authentication grants only the restricted enrollment session. All admin APIs require MFA assurance.
     const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: RESPONSE_HEADERS });
+    response.cookies.set(MFA_CHALLENGE_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/api/admin/mfa", maxAge: 0 });
     setSessionCookie(response, sessionToken);
     return response;
   } catch {
