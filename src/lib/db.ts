@@ -132,7 +132,7 @@ export async function getValidAdminMfaChallenge(tokenHash: string): Promise<bool
 
 export async function recordAdminMfaChallengeFailure(tokenHash: string): Promise<number> {
   const sql = getSql();
-  const rows = await sql`UPDATE admin_mfa_challenges SET attempts = attempts + 1 WHERE token_hash = ${tokenHash} AND expires_at > now() RETURNING attempts`;
+  const rows = await sql`UPDATE admin_mfa_challenges SET attempts = attempts + 1 WHERE token_hash = ${tokenHash} AND expires_at > now() AND attempts < 5 RETURNING attempts`;
   return Number(rows[0]?.attempts ?? 5);
 }
 
@@ -510,7 +510,8 @@ export async function completeAdminMfaRecoveryChallenge(challengeHash: string, r
 }
 
 /** Disable after a recent MFA-assured session plus password reauthentication. */
-export async function disableAdminTotp(): Promise<boolean> {
+export async function disableAdminTotp(clientKey: string, accountKey: string): Promise<boolean> {
+  if (!/^[a-f0-9]{64}$/i.test(clientKey) || !/^[a-f0-9]{64}$/i.test(accountKey)) return false;
   const sql = getSql();
   const rows = await sql`
     WITH disabled AS (
@@ -529,6 +530,12 @@ export async function disableAdminTotp(): Promise<boolean> {
       DELETE FROM admin_mfa_challenges
       WHERE EXISTS (SELECT 1 FROM disabled)
       RETURNING token_hash
+    ),
+    cleared_attempts AS (
+      DELETE FROM admin_auth_attempts
+      WHERE (client_key = ${clientKey} OR client_key = ${accountKey})
+        AND EXISTS (SELECT 1 FROM disabled)
+      RETURNING client_key
     )
     SELECT admin_id FROM disabled
   `;
