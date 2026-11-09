@@ -19,6 +19,10 @@ export default function AdminMfaPage() {
     const response = await fetch("/api/admin/mfa", { cache: "no-store" });
     if (response.ok) {
       const data = await response.json();
+      if (data.mode === "challenge") {
+        setMode("challenge");
+        return;
+      }
       setMode("enrollment");
       setEnabled(Boolean(data.enabled));
       return;
