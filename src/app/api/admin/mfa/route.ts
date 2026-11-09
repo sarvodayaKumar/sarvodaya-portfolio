@@ -42,6 +42,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
   if (!(await signedIn(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: HEADERS });
+  const length = Number(request.headers.get("content-length") ?? 0);
+  if (length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const rawBody = await request.text();
+  if (rawBody.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   const credential = await getAdminTotpCredential();
   if (credential?.enabled) return NextResponse.json({ error: "Authenticator is already enabled" }, { status: 409, headers: HEADERS });
   let secret: string;
