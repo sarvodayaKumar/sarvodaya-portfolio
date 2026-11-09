@@ -6,6 +6,7 @@ on:
       - ci/28-security-scanning
     paths:
       - .github/workflows/remediate-npm-audit.yml
+      - src/lib/db.ts
 
 permissions:
   contents: write
