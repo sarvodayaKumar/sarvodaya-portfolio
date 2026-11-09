@@ -141,6 +141,12 @@ export async function consumeAdminMfaChallenge(tokenHash: string): Promise<void>
   await sql`DELETE FROM admin_mfa_challenges WHERE token_hash = ${tokenHash}`;
 }
 
+/** Revoke all outstanding login challenges for the single configured administrator. */
+export async function revokeAllAdminMfaChallenges(): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM admin_mfa_challenges`;
+}
+
 export async function getValidAdminSession(tokenHash: string): Promise<boolean> {
   const sql = getSql();
   const rows = await sql`
