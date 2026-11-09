@@ -9,6 +9,7 @@ function fail(message) { console.error('DAST target rejected: ' + message); proc
 if (!rawTarget) fail('provide an explicit staging URL.');
 if (/[\r\n]/.test(rawTarget)) fail('newlines are not permitted in the target.');
 if (allowedHosts.length === 0) fail('configure the DAST_ALLOWED_HOSTS repository variable.');
+if (productionHosts.length === 0) fail('configure the DAST_PRODUCTION_HOSTS repository variable.');
 let target;
 try { target = new URL(rawTarget); } catch { fail('the target must be a valid absolute URL.'); }
 const hostname = target.hostname.toLowerCase();
