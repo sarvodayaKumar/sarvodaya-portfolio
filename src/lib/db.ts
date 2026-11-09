@@ -481,3 +481,24 @@ export async function revokeAllAdminSessions(): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM admin_sessions`;
 }
+
+
+const ADMIN_AUTH_AUDIT_EVENTS = new Set([
+  "password_sign_in", "totp_enrollment", "totp_challenge", "email_otp",
+  "email_magic_link", "recovery_code", "mfa_disable", "session_logout",
+]);
+
+/** Persist only a bounded event label, keyed client digest, and outcome; never store secrets or OTP values. */
+export async function recordAdminAuthAuditEvent(
+  eventType: string,
+  actorKey: string | null,
+  success: boolean,
+): Promise<void> {
+  if (!ADMIN_AUTH_AUDIT_EVENTS.has(eventType)) return;
+  if (actorKey !== null && !/^[a-f0-9]{64}$/i.test(actorKey)) return;
+  const sql = getSql();
+  await sql`
+    INSERT INTO admin_auth_audit_events (event_type, actor_key, success)
+    VALUES (${eventType}, ${actorKey}, ${success})
+  `;
+}
