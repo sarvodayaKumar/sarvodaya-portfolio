@@ -31,10 +31,17 @@ jobs:
             exit 1
           fi
 
-      - name: Check out reviewed main branch
+      - name: Require migration dispatch from reviewed main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Run this production migration only from the reviewed main branch."
+            exit 1
+          fi
+
+      - name: Check out the exact reviewed dispatch commit
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
