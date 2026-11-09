@@ -15,6 +15,7 @@ export default function AdminMfaPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [emailMode, setEmailMode] = useState(false);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/admin/mfa", { cache: "no-store" });
@@ -56,7 +57,12 @@ export default function AdminMfaPage() {
     event.preventDefault();
     setBusy(true); setError(""); setNotice("");
     try {
-      const response = mode === "challenge"
+      const response = mode === "challenge" && emailMode
+        ? await fetch("/api/admin/mfa/email", {
+            method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code }),
+          })
+        : mode === "challenge"
         ? await fetch("/api/admin/mfa/challenge", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ code }),
@@ -90,6 +96,20 @@ export default function AdminMfaPage() {
     } finally { setBusy(false); }
   }
 
+  async function sendEmailCode() {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/admin/mfa/email", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error ?? "Unable to send an email code.");
+      setEmailMode(true);
+      setCode("");
+      setNotice("A one-time code was sent to the administrator email address.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to send an email code.");
+    } finally { setBusy(false); }
+  }
+
   async function signOut() {
     await fetch("/api/admin/session", { method: "DELETE" });
     window.location.assign("/admin/comments");
@@ -113,13 +133,22 @@ export default function AdminMfaPage() {
       {mode === "challenge" && (
         <section className="mt-6 rounded-2xl border border-border bg-card p-5">
           <h2 className="font-semibold text-foreground">Verify your authenticator</h2>
-          <p className="mt-2 text-sm text-muted">Enter the current six-digit code from your authenticator app. The login challenge expires after five minutes.</p>
+          <p className="mt-2 text-sm text-muted">Enter a current six-digit code from your authenticator app, or use the email fallback. The login challenge expires after five minutes.</p>
           <form onSubmit={submitCode} className="mt-5 space-y-3">
-            <label className="block text-sm text-foreground">Authenticator code
+            <label className="block text-sm text-foreground">{emailMode ? "Email one-time code" : "Authenticator code"}
               <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 font-mono text-lg tracking-[0.3em] text-foreground" />
             </label>
             <button disabled={busy || code.length !== 6} className="rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background disabled:opacity-50">{busy ? "Verifying…" : "Verify and sign in"}</button>
           </form>
+          {!emailMode ? (
+            <button type="button" onClick={sendEmailCode} disabled={busy} className="mt-4 text-sm text-foreground underline underline-offset-4 disabled:opacity-50">
+              {busy ? "Sending…" : "Use email one-time code instead"}
+            </button>
+          ) : (
+            <button type="button" onClick={() => { setEmailMode(false); setCode(""); setError(""); setNotice(""); }} className="mt-4 text-sm text-foreground underline underline-offset-4">
+              Use authenticator app instead
+            </button>
+          )}
         </section>
       )}
 
