@@ -22,7 +22,6 @@ export default function AdminMfaPage() {
   const [regenerating, setRegenerating] = useState(false);
   const [mfaVerified, setMfaVerified] = useState(false);
   const [disablePassword, setDisablePassword] = useState("");
-  const [disableCode, setDisableCode] = useState("");
   const [disabling, setDisabling] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -152,7 +151,7 @@ export default function AdminMfaPage() {
       const response = await fetch("/api/admin/mfa", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: disablePassword, code: disableCode }),
+        body: JSON.stringify({ password: disablePassword }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error ?? "Unable to disable authenticator.");
@@ -245,11 +244,10 @@ export default function AdminMfaPage() {
               {mfaVerified ? (
                 <div className="mt-6 rounded-xl border border-border bg-background p-4">
                   <h3 className="text-sm font-semibold text-foreground">Disable authenticator</h3>
-                  <p className="mt-1 text-xs text-muted">This requires your administrator password and a fresh authenticator code. All active admin sessions will be revoked; you must enroll again before accessing admin APIs.</p>
+                  <p className="mt-1 text-xs text-muted">This requires a recent MFA sign-in (within ten minutes) and your administrator password. It supports authenticator, email OTP, or recovery-code sign-in. All active admin sessions will be revoked; you must enroll again before accessing admin APIs.</p>
                   <form onSubmit={(event) => { event.preventDefault(); disableMfa(); }} className="mt-3 space-y-3">
                     <input type="password" autoComplete="current-password" required value={disablePassword} onChange={(event) => setDisablePassword(event.target.value)} placeholder="Administrator password" className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground" />
-                    <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={disableCode} onChange={(event) => setDisableCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Current six-digit code" className="w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm text-foreground" />
-                    <button disabled={disabling || disableCode.length !== 6 || !disablePassword} className="rounded-full border border-red-500 px-4 py-2 text-xs text-red-500 disabled:opacity-50">{disabling ? "Disabling…" : "Disable authenticator"}</button>
+                    <button disabled={disabling || !disablePassword} className="rounded-full border border-red-500 px-4 py-2 text-xs text-red-500 disabled:opacity-50">{disabling ? "Disabling…" : "Disable authenticator"}</button>
                   </form>
                 </div>
               ) : (
