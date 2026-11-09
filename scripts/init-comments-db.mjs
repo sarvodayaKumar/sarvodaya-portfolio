@@ -43,6 +43,7 @@ await sql`
   )
 `;
 await sql`CREATE INDEX IF NOT EXISTS admin_mfa_challenges_expires_idx ON admin_mfa_challenges (expires_at)`;
+await sql`ALTER TABLE admin_mfa_challenges ADD COLUMN IF NOT EXISTS email_otp_allowed BOOLEAN NOT NULL DEFAULT true`;
 await sql`
   CREATE TABLE IF NOT EXISTS admin_email_otp_challenges (
     challenge_hash CHAR(64) PRIMARY KEY REFERENCES admin_mfa_challenges(token_hash) ON DELETE CASCADE,
