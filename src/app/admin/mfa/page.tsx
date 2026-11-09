@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 type Mode = "loading" | "challenge" | "enrollment" | "signed-out";
 type Enrollment = { secret: string; provisioningUri: string; expiresInSeconds: number };
 
 export default function AdminMfaPage() {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("loading");
   const [enabled, setEnabled] = useState(false);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
@@ -44,10 +46,13 @@ export default function AdminMfaPage() {
   }, []);
 
   useEffect(() => {
-    refresh().catch(() => {
-      setError("Unable to check MFA status.");
-      setMode("signed-out");
-    });
+    const handle = window.setTimeout(() => {
+      refresh().catch(() => {
+        setError("Unable to check MFA status.");
+        setMode("signed-out");
+      });
+    }, 0);
+    return () => window.clearTimeout(handle);
   }, [refresh]);
 
   async function startEnrollment() {
@@ -99,7 +104,7 @@ export default function AdminMfaPage() {
       }
       setCode("");
       if (mode === "challenge") {
-        window.location.assign("/admin");
+        router.push("/admin");
         return;
       }
       setEnrollment(null);
@@ -154,7 +159,7 @@ export default function AdminMfaPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error ?? "Unable to disable authenticator.");
-      window.location.assign("/admin/comments");
+      router.push("/admin/comments");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to disable authenticator.");
     } finally { setDisabling(false); }
