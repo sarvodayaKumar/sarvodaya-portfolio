@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function AdminEmailConfirmPage() {
+  const initialized = useRef(false);
   const [token, setToken] = useState("");
   const [status, setStatus] = useState<"loading" | "ready" | "invalid" | "verifying">("loading");
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
     const params = new URLSearchParams(window.location.hash.slice(1));
     const value = params.get("token") ?? "";
     window.history.replaceState(null, "", window.location.pathname);
