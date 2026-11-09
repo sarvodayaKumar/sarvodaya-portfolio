@@ -26,6 +26,26 @@ npm test
 
 The tests exercise comment API service behavior with an in-memory data store, including public comment listing/creation, validation, cooldown and daily limits, moderation authorization/actions, and database-error propagation.
 
+## Browser and accessibility tests
+
+The Playwright suite covers homepage-to-blog navigation, published post routes, the mobile menu with keyboard input, and the comment submission flow. Comment API requests are stubbed in browser tests so the suite does not need a live Neon database.
+
+Install the pinned browser-test tools (kept separate from the application lockfile):
+
+```bash
+npm install --no-save --package-lock=false @playwright/test@1.56.1 @axe-core/playwright@4.10.2
+npx playwright install chromium
+```
+
+Build and run the browser suite:
+
+```bash
+DATABASE_URL=postgresql://ci:ci@127.0.0.1:5432/portfolio npm run build
+npm run test:e2e
+```
+
+The Playwright configuration starts the production server on `http://127.0.0.1:3000`. axe-core checks WCAG 2.0/2.1 A and AA rules on the homepage and blog index; critical violations fail the suite, while serious violations are attached as test annotations for remediation. CI uploads traces, screenshots, videos, and the HTML report when browser tests fail.
+
 ## What updates from where
 
 | Content | Source |
