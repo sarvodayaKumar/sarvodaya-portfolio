@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  enableAdminTotp, getAdminTotpCredential, getValidAdminMfaChallenge, getValidAdminSession,
-  recordAdminTotpEnrollmentFailure, savePendingAdminTotpSecret,
+  disableAdminTotp, enableAdminTotp, getAdminSessionWithMfaPolicy, getAdminTotpCredential,
+  getValidAdminMfaChallenge, getValidAdminSession, recordAdminTotpEnrollmentFailure,
+  revokeAllAdminSessions, savePendingAdminTotpSecret,
 } from "@/lib/db";
-import { authorizeAdminSession, isSameOrigin } from "@/lib/admin-session";
+import { authorizeAdminSession, isSameOrigin, verifyAdminPassword } from "@/lib/admin-session";
 import {
   buildTotpUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret,
   generateAdminRecoveryCodes, getTotpCounterForCode, hashMagicLinkToken, hashOneTimeCode,
@@ -94,12 +95,43 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
-  if (!(await signedIn(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: HEADERS });
-  const body = await request.json().catch(() => null) as { code?: unknown; password?: unknown } | null;
-  if (!body || typeof body.code !== "string" || !/^\d{6}$/.test(body.code) || typeof body.password !== "string") {
+  const session = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!(await authorizeAdminSession(session, getAdminSessionWithMfaPolicy))) {
+    return NextResponse.json({ error: "An MFA-verified session is required" }, { status: 401, headers: HEADERS });
+  }
+  const bodyLength = Number(request.headers.get("content-length") ?? 0);
+  if (bodyLength > 2048) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const rawBody = await request.text();
+  if (rawBody.length > 2048) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  let body: { code?: unknown; password?: unknown } | null = null;
+  try { body = JSON.parse(rawBody) as { code?: unknown; password?: unknown }; } catch { /* generic invalid request */ }
+  if (!body || typeof body.code !== "string" || !/^\\d{6}$/.test(body.code) || typeof body.password !== "string") {
     return NextResponse.json({ error: "Password and current authenticator code are required" }, { status: 400, headers: HEADERS });
   }
-  // Disabling MFA is deliberately not exposed until a dedicated reauthentication
-  // and recovery policy is completed. This endpoint fails closed.
-  return NextResponse.json({ error: "Authenticator removal is not available yet" }, { status: 501, headers: HEADERS });
+  if (!(await verifyAdminPassword(body.password, process.env.ADMIN_PASSWORD_HASH))) {
+    return NextResponse.json({ error: "Reauthentication failed" }, { status: 401, headers: HEADERS });
+  }
+  const credential = await getAdminTotpCredential();
+  if (!credential?.enabled) return NextResponse.json({ error: "Authenticator is not enabled" }, { status: 409, headers: HEADERS });
+  let counter: number | null = null;
+  try {
+    counter = getTotpCounterForCode(decryptTotpSecret(credential.encryptedSecret), body.code);
+  } catch {
+    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  }
+  if (counter === null) return NextResponse.json({ error: "Invalid authenticator code" }, { status: 401, headers: HEADERS });
+  if (!(await disableAdminTotp(counter))) {
+    return NextResponse.json({ error: "Authenticator code has already been used. Wait for the next code and retry." }, { status: 409, headers: HEADERS });
+  }
+  await revokeAllAdminSessions();
+  const response = NextResponse.json({ ok: true, message: "Authenticator disabled. Sign in again and enroll a new factor before using admin APIs." }, { headers: HEADERS });
+  response.cookies.set(SESSION_COOKIE, "", {
+    httpOnly: true, secure: process.env.NODE_ENV === "production",
+    sameSite: "strict", path: "/api", maxAge: 0,
+  });
+  response.cookies.set(CHALLENGE_COOKIE, "", {
+    httpOnly: true, secure: process.env.NODE_ENV === "production",
+    sameSite: "strict", path: "/api/admin/mfa", maxAge: 0,
+  });
+  return response;
 }
