@@ -139,21 +139,21 @@ DNS:
 
 The homepage Blog block updates on refresh in `npm run dev` or the next production build.
 
-## Vercel deployment workflow
+## Deployment and CI policy
 
-Pull requests run a Vercel CLI build-only validation after the unit and browser/accessibility suites pass. The workflow links the existing Vercel project, pulls its Preview environment variables, and runs `vercel build`; it does **not** run `vercel deploy` and does not publish a Preview deployment.
+GitHub Actions is the source of truth for pull-request validation. CI does not call Vercel, link a Vercel project, pull Vercel environment variables, or create Preview/Production deployments. The required checks are independent of Vercel quotas and credentials:
 
-Add a `VERCEL_TOKEN` secret under **GitHub → Settings → Secrets and variables → Actions** for this repository. The token needs access to the `sarvodaya-portfolio` Vercel team and the `sarvodaya-kumar` project.
+- Comment API and unit tests
+- ESLint
+- Production Next.js build and TypeScript validation
+- Playwright and axe accessibility regression
+- CodeQL (JavaScript/TypeScript, security-extended queries)
+- Gitleaks secret scanning
+- npm high/critical vulnerability audit
+- Lighthouse performance and accessibility budgets
 
-Vercel Preview deployments are disabled for this project. Production deployment remains handled by Vercel's Git integration when a commit reaches `main` after the pull request is merged. Keep the `main` branch protected and require the unit, Playwright/axe, and Vercel dry-run checks before allowing a merge.
+Production deployment remains a separate release operation and must only happen after review, merge, and production database migration. No CI workflow in this PR deploys to Vercel. Vercel's daily deployment quota therefore cannot fail a GitHub CI check.
 
-### CI Preview and CD Production deployments
+The Vercel project stores runtime-only admin credentials as sensitive server environment variables. GitHub Actions does not need `VERCEL_TOKEN`, production database credentials, or admin secrets for PR validation. Do not add runtime credentials to GitHub Actions unless a separately reviewed workflow genuinely needs them.
 
-The GitHub Actions workflow separates validation and deployment:
-
-- Pull requests run unit tests and Playwright/axe checks. Only after both jobs pass, CI builds and deploys a Vercel Preview using `vercel build` and `vercel deploy --prebuilt`.
-- A push to `main` (normally the merge commit from an approved PR) runs the same test jobs. Only after they pass, the CD job builds with the Production environment and deploys with `vercel deploy --prebuilt --prod`.
-- Both jobs use the pinned Vercel CLI version `65.12.1` and require the GitHub Actions secret `VERCEL_TOKEN`.
-- Preview deployments are enabled in the Vercel project. Production deployment is performed by the GitHub Actions CD job.
-
-Configure `VERCEL_TOKEN` in GitHub repository Actions secrets. It must have access to the Vercel team `sarvodaya-portfolio` and project `sarvodaya-kumar`. Protect `main` and require the unit and browser checks before merge.
+Before production release, verify that the Production and Preview Vercel environments have the required runtime variables, run the idempotent database initializer against the intended Neon database, confirm the verified email sender and Resend API key if email fallback is enabled, and complete a fresh MFA enrollment. Keep `main` protected and require all CI/security checks before merge.
