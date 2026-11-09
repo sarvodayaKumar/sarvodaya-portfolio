@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   consumeAdminMfaChallenge, consumeAdminTotpCounter, createAdminSession,
   getAdminTotpCredential, getValidAdminMfaChallenge, recordAdminMfaChallengeFailure,
+  revokeAdminSession,
 } from "@/lib/db";
 import { createSessionToken, hashSessionToken, isSameOrigin } from "@/lib/admin-session";
 import { decryptTotpSecret, getTotpCounterForCode, hashMagicLinkToken } from "@/lib/admin-mfa";
@@ -24,11 +25,15 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
   const raw = request.cookies.get(COOKIE)?.value;
   if (!raw) return NextResponse.json({ error: "Authentication challenge expired" }, { status: 401, headers: HEADERS });
+  const bodyLength = Number(request.headers.get("content-length") ?? 0);
+  if (bodyLength > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   const challengeHash = hashMagicLinkToken(raw);
   if (!(await getValidAdminMfaChallenge(challengeHash))) {
     return NextResponse.json({ error: "Authentication challenge expired" }, { status: 401, headers: HEADERS });
   }
-  const body = await request.json().catch(() => null) as { code?: unknown } | null;
+  const rawBody = await request.text();
+  if (rawBody.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const body = await (async () => { try { return JSON.parse(rawBody) as { code?: unknown }; } catch { return null; } })();
   if (!body || typeof body.code !== "string" || !/^\d{6}$/.test(body.code)) {
     return NextResponse.json({ error: "Enter a valid six-digit code" }, { status: 400, headers: HEADERS });
   }
@@ -53,6 +58,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Authenticator code has already been used" }, { status: 401, headers: HEADERS });
   }
   await consumeAdminMfaChallenge(challengeHash);
+  const priorSession = request.cookies.get("admin_session")?.value;
+  if (priorSession) await revokeAdminSession(hashSessionToken(priorSession));
   const token = createSessionToken();
   await createAdminSession(hashSessionToken(token), new Date(Date.now() + SESSION_TTL_SECONDS * 1000), true);
   const response = NextResponse.json({ ok: true }, { headers: HEADERS });
