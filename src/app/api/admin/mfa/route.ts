@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   disableAdminTotp, enableAdminTotp, getAdminTotpCredential, getRecentAdminMfaSession,
   clearAdminAuthAttempts, getAdminAuthAttempts, getValidAdminMfaChallenge, getValidAdminSession,
-  recordFailedAdminAuthAttempt, recordAdminTotpEnrollmentFailure, revokeAllAdminSessions,
+  recordFailedAdminAuthAttempt, recordAdminTotpEnrollmentFailure,
   savePendingAdminTotpSecret,
 } from "@/lib/db";
 import { authorizeAdminSession, getAdminAuthAccountKey, getAdminAuthClientKey, getAdminMfaAccountKey, getAdminMfaClientKey, isSameOrigin, verifyAdminPassword } from "@/lib/admin-session";
@@ -162,13 +162,10 @@ export async function DELETE(request: NextRequest) {
   }
   const credential = await getAdminTotpCredential();
   if (!credential?.enabled) return NextResponse.json({ error: "Authenticator is not enabled" }, { status: 409, headers: HEADERS });
-  if (!(await disableAdminTotp())) {
+  if (!(await disableAdminTotp(clientKey, accountKey))) {
     return NextResponse.json({ error: "Unable to disable authenticator" }, { status: 409, headers: HEADERS });
   }
   await auditAdminAuthEvent(request, "mfa_disable", true);
-  await clearAdminAuthAttempts(clientKey);
-  await clearAdminAuthAttempts(accountKey);
-  await revokeAllAdminSessions();
   const response = NextResponse.json({ ok: true, message: "Authenticator disabled. Sign in again and enroll a new factor before using admin APIs." }, { headers: HEADERS });
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true, secure: process.env.NODE_ENV === "production",
