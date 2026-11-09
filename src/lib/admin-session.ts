@@ -2,31 +2,20 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { isIP } from "node:net";
 import bcrypt from "bcryptjs";
 
+const SESSION_BYTES = 32;
+
 export function safeEqual(candidate: string, expected: string): boolean {
   const left = Buffer.from(candidate);
   const right = Buffer.from(expected);
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-/** Format: scrypt$N$r$p$salt$key (base64url); only bounded parameters are accepted. */
+/** Verify bcrypt hashes (cost 12); reject passwords exceeding bcrypt's 72-byte limit. */
 export async function verifyAdminPassword(password: string, encoded: string | undefined): Promise<boolean> {
-  if (!encoded || !password || password.length > 1024) return false;
-  const parts = encoded.split("$");
-  if (parts.length !== 6 || parts[0] !== "scrypt") return false;
-  const n = Number(parts[1]);
-  const r = Number(parts[2]);
-  const p = Number(parts[3]);
-  if (n !== SCRYPT_N || r !== SCRYPT_R || p !== SCRYPT_P) return false;
+  if (!encoded || !/^\\$2[aby]\\$12\\$[./A-Za-z0-9]{53}$/.test(encoded) || !password || password.length > 1024) return false;
+  if (bcrypt.truncates(password)) return false;
   try {
-    const salt = Buffer.from(parts[4], "base64url");
-    const expected = Buffer.from(parts[5], "base64url");
-    if (salt.length < 16 || salt.length > 64 || expected.length !== SCRYPT_KEY_LENGTH) return false;
-    const actual = await new Promise<Buffer>((resolve, reject) => {
-      scryptCallback(password, salt, SCRYPT_KEY_LENGTH, {
-        N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, maxmem: SCRYPT_MAXMEM,
-      }, (error, derivedKey) => error ? reject(error) : resolve(derivedKey));
-    });
-    return timingSafeEqual(actual, expected);
+    return await bcrypt.compare(password, encoded);
   } catch {
     return false;
   }
