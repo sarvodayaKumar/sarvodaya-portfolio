@@ -53,7 +53,7 @@ The admin area uses one configured administrator identity; there is no public re
 Configure these **server-only Vercel environment variables** for every environment (Production, Preview, and Development as applicable):
 
 - `ADMIN_USERNAME`: administrator username or email.
-- `ADMIN_PASSWORD_HASH`: scrypt password hash generated locally; never store the plaintext password in Vercel or source control.
+- `ADMIN_PASSWORD_HASH`: bcrypt hash (cost 12) generated locally; never store the plaintext password in Vercel or source control.
 - `ADMIN_AUTH_PEPPER`: independent random secret of at least 32 characters, used to HMAC trusted client IPs for login throttling and one-time-code hashes.
 - `ADMIN_TOTP_ENCRYPTION_KEY`: independent 32-byte key encoded as 64 hexadecimal characters; used only by the server to encrypt authenticator secrets with AES-256-GCM. Generate with `openssl rand -hex 32`; keep it separate from `ADMIN_AUTH_PEPPER`.
 - `DATABASE_URL`: Neon database connection string used for sessions, persistent login throttling, and MFA credential storage.
@@ -66,9 +66,9 @@ printf '%s' "$ADMIN_PASSWORD" | node scripts/hash-admin-password.mjs
 unset ADMIN_PASSWORD
 ```
 
-Copy the single hash output into `ADMIN_PASSWORD_HASH`. Generate a separate pepper with `openssl rand -hex 32` and set it as `ADMIN_AUTH_PEPPER`. Do not prefix these variables with `NEXT_PUBLIC_`.
+Copy the bcrypt hash output into `ADMIN_PASSWORD_HASH`. Existing scrypt hashes are no longer accepted; generate and configure a new bcrypt hash before deploying this change. bcrypt accepts at most 72 UTF-8 bytes. Generate a separate pepper with `openssl rand -hex 32` and set it as `ADMIN_AUTH_PEPPER`. Do not prefix these variables with `NEXT_PUBLIC_`.
 
-Sign in at `/admin/comments`; the same server-side session authorizes the operations dashboard at `/admin`. Password verification uses scrypt (N=65536, r=8, p=1, 64-byte output). Login failures return generic responses and are limited to five attempts per trusted client IP per 15-minute window. If the trusted Vercel/proxy IP header or database is unavailable, login fails closed.
+Sign in at `/admin/comments`; the same server-side session authorizes the operations dashboard at `/admin`. Password verification uses bcrypt with cost 12. Login failures return generic responses and are limited to five attempts per trusted client IP per 15-minute window. If the trusted Vercel/proxy IP header or database is unavailable, login fails closed.
 
 Password verification creates only a restricted enrollment session. That session is accepted solely by the MFA enrollment endpoints; every protected admin API requires an `mfa_verified=true` session even before enrollment is complete. Sign-in always routes to `/admin/mfa` until an authenticator has been enrolled and verified. Enroll at `/admin/mfa` while in this restricted state: the server stores the TOTP secret encrypted with AES-256-GCM, pending enrollment expires after ten minutes, and enrollment is activated only after a valid six-digit code is confirmed. The setup page provides the manual key and standard `otpauth://` URI for Google Authenticator, Microsoft Authenticator, 1Password, and compatible apps.
 
