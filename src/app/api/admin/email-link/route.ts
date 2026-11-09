@@ -122,7 +122,7 @@ export async function PUT(request: NextRequest) {
   });
   response.cookies.set("admin_mfa_challenge", "", {
     httpOnly: true, secure: process.env.NODE_ENV === "production",
-    sameSite: "strict", path: "/api/admin/mfa", maxAge: 0,
+    sameSite: "strict", path: "/api/admin", maxAge: 0,
   });
   if (credential?.enabled) {
     const challengeToken = createEmailMagicLinkToken();
@@ -135,7 +135,7 @@ export async function PUT(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      path: "/api/admin/mfa",
+      path: "/api/admin",
       maxAge: CHALLENGE_TTL_SECONDS,
     });
   } else {
