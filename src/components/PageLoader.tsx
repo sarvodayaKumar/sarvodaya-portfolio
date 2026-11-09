@@ -21,6 +21,7 @@ export default function PageLoader({ children }: { children: React.ReactNode }) 
   const reducedMotion = useSyncExternalStore(subscribeReducedMotion, getReducedMotionSnapshot, getServerReducedMotionSnapshot);
 
   useEffect(() => {
+    if (ready) return;
     let cancelled = false;
     let current = 10;
     document.body.style.overflow = "hidden";
@@ -44,6 +45,8 @@ export default function PageLoader({ children }: { children: React.ReactNode }) 
 
     if (reducedMotion) {
       window.clearInterval(tick);
+      setVisible(false);
+      setReady(true);
       document.body.style.overflow = "";
       return;
     }
@@ -64,7 +67,7 @@ export default function PageLoader({ children }: { children: React.ReactNode }) 
       window.clearInterval(tick);
       document.body.style.overflow = "";
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, ready]);
 
   const intro = useMemo(() => ({ ready: ready || reducedMotion }), [ready, reducedMotion]);
 
