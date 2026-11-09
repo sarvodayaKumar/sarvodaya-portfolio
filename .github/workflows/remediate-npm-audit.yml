@@ -34,7 +34,9 @@ jobs:
         run: npm install --save-exact next@16.4.5 eslint-config-next@16.4.5
 
       - name: Apply compatible transitive dependency fixes
-        run: npm audit fix
+        # npm audit fix exits non-zero when only moderate findings remain.
+        # The explicit high-severity audit below remains the required security gate.
+        run: npm audit fix || true
 
       - name: Verify lockfile consistency
         run: npm ci
