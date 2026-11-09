@@ -152,6 +152,8 @@ export function createEmailMagicLinkToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export function hashMagicLinkToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+/** Tokens contain 256 bits of entropy; keyed hashing also binds stored digests to this deployment. */
+export function hashMagicLinkToken(token: string, pepper = process.env.ADMIN_AUTH_PEPPER): string {
+  if (!pepper || pepper.length < 32) throw new Error("ADMIN_AUTH_PEPPER must contain at least 32 characters");
+  return createHmac("sha256", pepper).update(token).digest("hex");
 }
