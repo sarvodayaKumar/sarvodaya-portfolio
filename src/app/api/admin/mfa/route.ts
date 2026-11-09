@@ -105,7 +105,7 @@ export async function DELETE(request: NextRequest) {
   if (rawBody.length > 2048) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   let body: { code?: unknown; password?: unknown } | null = null;
   try { body = JSON.parse(rawBody) as { code?: unknown; password?: unknown }; } catch { /* generic invalid request */ }
-  if (!body || typeof body.code !== "string" || !/^\\d{6}$/.test(body.code) || typeof body.password !== "string") {
+  if (!body || typeof body.code !== "string" || !/^\d{6}$/.test(body.code) || typeof body.password !== "string") {
     return NextResponse.json({ error: "Password and current authenticator code are required" }, { status: 400, headers: HEADERS });
   }
   if (!(await verifyAdminPassword(body.password, process.env.ADMIN_PASSWORD_HASH))) {
