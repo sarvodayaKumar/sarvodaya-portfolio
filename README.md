@@ -70,16 +70,18 @@ Copy the single hash output into `ADMIN_PASSWORD_HASH`. Generate a separate pepp
 
 Sign in at `/admin/comments`; the same server-side session authorizes the operations dashboard at `/admin`. Password verification uses scrypt (N=65536, r=8, p=1, 64-byte output). Login failures return generic responses and are limited to five attempts per trusted client IP per 15-minute window. If the trusted Vercel/proxy IP header or database is unavailable, login fails closed.
 
-Successful sign-in creates a random eight-hour session. Only its SHA-256 hash is stored in `admin_sessions`; the browser receives an HttpOnly, SameSite=Strict cookie (Secure in production) scoped to `/api`. Sign-out revokes the server-side session. Admin API handlers independently validate the session on every request; hiding admin pages in the UI is not an authorization boundary.
+Before an authenticator is enabled, successful password sign-in creates a random eight-hour session. Enroll at `/admin/mfa` while signed in: the server stores the TOTP secret encrypted with AES-256-GCM, pending enrollment expires after ten minutes, and enrollment is activated only after a valid six-digit code is confirmed. The setup page provides the manual key and standard `otpauth://` URI for Google Authenticator, Microsoft Authenticator, 1Password, and compatible apps.
+
+After enrollment, password sign-in creates only a five-minute, single-use MFA challenge; it does not create an admin session. The authenticator code must be valid and its time-step must not have been used previously. Only then is a new eight-hour session created with `mfa_verified=true`. Analytics, operations, and comment-moderation APIs independently enforce that assurance. Existing password-only sessions are denied admin data access once MFA is enabled. Sessions store only token hashes; browser cookies are HttpOnly, SameSite=Strict, Secure in production, and scoped to `/api`. Sign-out revokes the server-side session.
 
 ### API access policy
 
-- **Private — session required:** `/api/admin/operations`, `/api/admin/analytics` (when analytics is deployed), and `/api/comments/moderate`.
+- **Private — MFA-assured session required after enrollment:** `/api/admin/operations`, `/api/admin/analytics`, and `/api/comments/moderate`.
 - **Public by design:** `GET /api/comments` returns approved comments only; `POST /api/comments` accepts moderated submissions and enforces same-origin, request-size, input, and rate limits. The analytics ingestion endpoint, when deployed, is public by design and accepts only bounded same-origin aggregate events.
-- **Authentication boundary:** `/api/admin/session` exposes only session status, same-origin credential sign-in, and same-origin sign-out. It never exposes secrets or admin data.
+- **Authentication boundary:** `/api/admin/session` exposes session status, same-origin credential sign-in, and sign-out. `/api/admin/mfa` permits authenticated enrollment and confirmation; `/api/admin/mfa/challenge` accepts only the short-lived challenge cookie and a valid TOTP code. Neither endpoint exposes stored TOTP secrets.
 - New API routes must be explicitly added to the access-policy test allowlist or protected with `authorizeAdminSession`.
 
-After deploying the session/database changes, run the idempotent database initializer once against the target `DATABASE_URL`:
+Before enabling enrollment, set `ADMIN_TOTP_ENCRYPTION_KEY` in the deployment environment and run the idempotent database initializer against the target `DATABASE_URL`. The initializer adds MFA credential, challenge, and session-assurance schema:
 
 ```bash
 npm run db:init-comments
