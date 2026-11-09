@@ -278,7 +278,7 @@ export async function savePendingAdminTotpSecret(encryptedSecret: string): Promi
     INSERT INTO admin_mfa_credentials (admin_id, encrypted_secret, enabled, last_used_counter, pending_expires_at)
     VALUES ('primary', ${encryptedSecret}, false, -1, now() + INTERVAL '10 minutes')
     ON CONFLICT (admin_id) DO UPDATE SET encrypted_secret = EXCLUDED.encrypted_secret,
-      last_used_counter = -1, pending_expires_at = EXCLUDED.pending_expires_at, updated_at = now()
+      last_used_counter = -1, pending_attempts = 0, pending_expires_at = EXCLUDED.pending_expires_at, updated_at = now()
     WHERE admin_mfa_credentials.enabled = false
     RETURNING admin_id
   `;
@@ -292,7 +292,7 @@ export async function enableAdminTotp(counter: number): Promise<boolean> {
   const rows = await sql`
     UPDATE admin_mfa_credentials
     SET enabled = true, last_used_counter = ${counter}, pending_expires_at = NULL, updated_at = now()
-    WHERE admin_id = 'primary' AND enabled = false AND pending_expires_at > now()
+    WHERE admin_id = 'primary' AND enabled = false AND pending_attempts < 5 AND pending_expires_at > now()
     RETURNING admin_id
   `;
   return rows.length === 1;
@@ -329,4 +329,16 @@ export async function completeAdminMfaChallenge(tokenHash: string, counter: numb
     SELECT admin_id FROM updated
   `;
   return rows.length === 1;
+}
+
+/** Bound guesses during authenticator enrollment; five failures expire the pending setup. */
+export async function recordAdminTotpEnrollmentFailure(): Promise<number> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE admin_mfa_credentials
+    SET pending_attempts = LEAST(pending_attempts + 1, 5), updated_at = now()
+    WHERE admin_id = 'primary' AND enabled = false AND pending_expires_at > now()
+    RETURNING pending_attempts
+  `;
+  return Number(rows[0]?.pending_attempts ?? 5);
 }
