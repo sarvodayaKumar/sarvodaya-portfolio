@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  clearAdminAuthAttempts,
   consumeAdminEmailOtpChallenge,
   createAdminSession,
   createAdminEmailOtpChallenge,
   getAdminTotpCredential,
   getValidAdminMfaChallenge,
   recordAdminEmailOtpFailure,
+  recordFailedAdminAuthAttempt,
   revokeAdminSession,
 } from "@/lib/db";
-import { createSessionToken, hashSessionToken, isSameOrigin } from "@/lib/admin-session";
+import { createSessionToken, getAdminMfaAccountKey, getAdminMfaClientKey, hashSessionToken, isSameOrigin } from "@/lib/admin-session";
 import { generateEmailOtp, hashMagicLinkToken, hashOneTimeCode } from "@/lib/admin-mfa";
 import { sendAdminMfaEmailCode } from "@/lib/admin-email";
 import { auditAdminAuthEvent } from "@/lib/admin-audit";
@@ -41,6 +43,14 @@ export async function POST(request: NextRequest) {
   }
   const credential = await getAdminTotpCredential();
   if (!credential?.enabled) return NextResponse.json({ error: "Complete authenticator enrollment first" }, { status: 409, headers: HEADERS });
+  const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
+  const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
+  if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  const ipAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
+  const accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
+  if (ipAttempts > 5 || accountAttempts > 5) return NextResponse.json({ error: "Email verification temporarily locked" }, {
+    status: 429, headers: { ...HEADERS, "Retry-After": "900" },
+  });
 
   const code = generateEmailOtp();
   const saved = await createAdminEmailOtpChallenge(
@@ -76,16 +86,25 @@ export async function PUT(request: NextRequest) {
   }
 
   const codeHash = hashOneTimeCode(body.code, "email-mfa");
+  const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
+  const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
+  if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   if (!(await consumeAdminEmailOtpChallenge(challengeHash, codeHash))) {
     await auditAdminAuthEvent(request, "email_otp", false);
     const attempts = await recordAdminEmailOtpFailure(challengeHash);
-    const response = NextResponse.json({ error: attempts >= 5 ? "Email code attempts exceeded. Sign in again." : "Invalid or expired email code." }, {
-      status: 401, headers: HEADERS,
+    const ipAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
+    const accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
+    const locked = attempts >= 5 || ipAttempts > 5 || accountAttempts > 5;
+    const response = NextResponse.json({ error: locked ? "Email verification temporarily locked. Sign in again later." : "Invalid or expired email code." }, {
+      status: locked ? 429 : 401,
+      headers: { ...HEADERS, ...(locked ? { "Retry-After": "900" } : {}) },
     });
-    if (attempts >= 5) clearChallengeCookie(response);
+    if (locked) clearChallengeCookie(response);
     return response;
   }
 
+  await clearAdminAuthAttempts(clientKey);
+  await clearAdminAuthAttempts(accountKey);
   await auditAdminAuthEvent(request, "email_otp", true);
   const priorSession = request.cookies.get("admin_session")?.value;
   if (priorSession) await revokeAdminSession(hashSessionToken(priorSession));
