@@ -7,21 +7,25 @@ import {
   clearAdminAuthAttempts,
 } from "@/lib/db";
 import {
+  authorizeAdminSession,
   createSessionToken,
   hashSessionToken,
   isSameOrigin,
-  verifyAdminToken,
+  safeEqual,
+  verifyAdminPassword,
   getAdminAuthClientKey,
-  getAdminTokenFromBody,
+  getAdminCredentialsFromBody,
 } from "@/lib/admin-session";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const COOKIE_NAME = "admin_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const AUTH_WINDOW_SECONDS = 15 * 60;
 const MAX_FAILED_AUTH_ATTEMPTS = 5;
 const AUTH_FAILURE = { error: "Unable to authenticate" };
+const RESPONSE_HEADERS = { "Cache-Control": "no-store", Vary: "Cookie" };
 
 function setSessionCookie(response: NextResponse, token: string) {
   response.cookies.set(COOKIE_NAME, token, {
@@ -35,69 +39,81 @@ function setSessionCookie(response: NextResponse, token: string) {
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
-  if (!token || !(await getValidAdminSession(hashSessionToken(token)))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  return NextResponse.json({ ok: true });
+  const valid = await authorizeAdminSession(token, getValidAdminSession);
+  return NextResponse.json(valid ? { ok: true } : { error: "Unauthorized" }, {
+    status: valid ? 200 : 401, headers: RESPONSE_HEADERS,
+  });
 }
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: RESPONSE_HEADERS });
   }
-
-  const clientKey = getAdminAuthClientKey(request, process.env.ADMIN_TOKEN);
+  const length = Number(request.headers.get("content-length") ?? 0);
+  if (length > 4096) return NextResponse.json(AUTH_FAILURE, { status: 413, headers: RESPONSE_HEADERS });
+  const raw = await request.text();
+  if (raw.length > 4096) return NextResponse.json(AUTH_FAILURE, { status: 413, headers: RESPONSE_HEADERS });
+  let body: unknown;
+  try { body = JSON.parse(raw); } catch {
+    return NextResponse.json(AUTH_FAILURE, { status: 400, headers: RESPONSE_HEADERS });
+  }
+  const credentials = getAdminCredentialsFromBody(body);
+  const username = process.env.ADMIN_USERNAME;
+  const passwordHash = process.env.ADMIN_PASSWORD_HASH;
+  const pepper = process.env.ADMIN_AUTH_PEPPER;
+  const clientKey = getAdminAuthClientKey(request, pepper);
   if (!clientKey) {
-    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503 });
+    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: RESPONSE_HEADERS });
   }
 
-  const body = await request.json().catch(() => null);
-  const token = getAdminTokenFromBody(body);
-  if (!token || !verifyAdminToken(token, process.env.ADMIN_TOKEN)) {
+  let valid = false;
+  if (credentials && username && passwordHash) {
+    const usernameValid = safeEqual(credentials.username.toLowerCase(), username.trim().toLowerCase());
+    const passwordValid = await verifyAdminPassword(credentials.password, passwordHash);
+    valid = usernameValid && passwordValid;
+  }
+
+  if (!valid) {
     try {
       const attempts = await recordFailedAdminAuthAttempt(clientKey, AUTH_WINDOW_SECONDS);
       if (attempts > MAX_FAILED_AUTH_ATTEMPTS) {
         return NextResponse.json(AUTH_FAILURE, {
-          status: 429,
-          headers: { "Retry-After": String(AUTH_WINDOW_SECONDS) },
+          status: 429, headers: { ...RESPONSE_HEADERS, "Retry-After": String(AUTH_WINDOW_SECONDS) },
         });
       }
     } catch {
-      return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503 });
+      return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: RESPONSE_HEADERS });
     }
-    return NextResponse.json(AUTH_FAILURE, { status: 401 });
+    return NextResponse.json(AUTH_FAILURE, { status: 401, headers: RESPONSE_HEADERS });
   }
 
   try {
     await clearAdminAuthAttempts(clientKey);
+    const sessionToken = createSessionToken();
+    const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
+    await createAdminSession(hashSessionToken(sessionToken), expiresAt);
+    const response = NextResponse.json({ ok: true }, { headers: RESPONSE_HEADERS });
+    setSessionCookie(response, sessionToken);
+    return response;
   } catch {
-    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503 });
+    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: RESPONSE_HEADERS });
   }
-
-  const sessionToken = createSessionToken();
-  const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
-  await createAdminSession(hashSessionToken(sessionToken), expiresAt);
-
-  const response = NextResponse.json({ ok: true });
-  setSessionCookie(response, sessionToken);
-  return response;
 }
 
 export async function DELETE(request: NextRequest) {
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: RESPONSE_HEADERS });
   }
-
   const token = request.cookies.get(COOKIE_NAME)?.value;
-  if (token) await revokeAdminSession(hashSessionToken(token));
-
-  const response = NextResponse.json({ ok: true });
+  try {
+    if (token) await revokeAdminSession(hashSessionToken(token));
+  } catch {
+    return NextResponse.json({ error: "Unable to sign out" }, { status: 503, headers: RESPONSE_HEADERS });
+  }
+  const response = NextResponse.json({ ok: true }, { headers: RESPONSE_HEADERS });
   response.cookies.set(COOKIE_NAME, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/api",
-    maxAge: 0,
+    httpOnly: true, secure: process.env.NODE_ENV === "production",
+    sameSite: "strict", path: "/api", maxAge: 0,
   });
   return response;
 }

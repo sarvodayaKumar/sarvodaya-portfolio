@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
+import AdminSignInForm from "@/components/admin/AdminSignInForm";
 
 type Comment = {
   id: number;
@@ -12,7 +13,6 @@ type Comment = {
 };
 
 export default function AdminCommentsPage() {
-  const [token, setToken] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -20,12 +20,10 @@ export default function AdminCommentsPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const loadComments = useCallback(async () => {
-    const res = await fetch("/api/comments/moderate?status=pending", {
-      cache: "no-store",
-    });
+    const res = await fetch("/api/comments/moderate?status=pending", { cache: "no-store" });
     if (!res.ok) {
       setUnlocked(false);
-      setError(res.status === 401 ? "Your admin session has expired. Sign in again." : "Unable to load comments.");
+      setError(res.status === 401 ? "Your administrator session has expired. Sign in again." : "Unable to load comments.");
       return;
     }
     const data = await res.json();
@@ -44,34 +42,13 @@ export default function AdminCommentsPage() {
           await loadComments();
         }
       } catch {
-        if (!cancelled) setError("Unable to verify the admin session.");
+        if (!cancelled) setError("Unable to verify the administrator session.");
       } finally {
         if (!cancelled) setCheckingSession(false);
       }
     })();
     return () => { cancelled = true; };
   }, [loadComments]);
-
-  const handleUnlock = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError("");
-    try {
-      const res = await fetch("/api/admin/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      if (!res.ok) {
-        setError("Invalid credentials.");
-        return;
-      }
-      setToken("");
-      setUnlocked(true);
-      await loadComments();
-    } catch {
-      setError("Unable to sign in. Please try again.");
-    }
-  };
 
   const handleLogout = async () => {
     await fetch("/api/admin/session", { method: "DELETE" });
@@ -83,12 +60,11 @@ export default function AdminCommentsPage() {
     setBusyId(id);
     try {
       const res = await fetch("/api/comments/moderate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, action }),
       });
       if (!res.ok) {
-        setError(res.status === 401 ? "Your admin session has expired. Sign in again." : "The moderation action failed.");
+        setError(res.status === 401 ? "Your administrator session has expired. Sign in again." : "The moderation action failed.");
         if (res.status === 401) setUnlocked(false);
         return;
       }
@@ -102,31 +78,9 @@ export default function AdminCommentsPage() {
   };
 
   if (checkingSession) {
-    return <main className="mx-auto flex min-h-[60svh] max-w-sm items-center justify-center px-6"><p className="text-sm text-muted" role="status">Checking admin session…</p></main>;
+    return <main className="mx-auto flex min-h-[60svh] max-w-sm items-center justify-center px-6"><p className="text-sm text-muted" role="status">Checking administrator session…</p></main>;
   }
-
-  if (!unlocked) {
-    return (
-      <main className="mx-auto flex min-h-[60svh] max-w-sm flex-col justify-center px-6">
-        <h1 className="mb-4 text-xl font-semibold text-foreground">Admin sign in</h1>
-        <form onSubmit={handleUnlock}>
-          <input
-            type="password"
-            value={token}
-            onChange={(event) => setToken(event.target.value)}
-            placeholder="Admin token"
-            autoComplete="current-password"
-            required
-            className="mb-3 w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground"
-          />
-          <button type="submit" className="rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background">
-            Sign in
-          </button>
-        </form>
-        {error && <p className="mt-3 text-sm text-red-500" role="alert">{error}</p>}
-      </main>
-    );
-  }
+  if (!unlocked) return <AdminSignInForm />;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
@@ -135,9 +89,7 @@ export default function AdminCommentsPage() {
         <button onClick={handleLogout} className="rounded-full border border-border px-4 py-2 text-xs text-foreground">Sign out</button>
       </div>
       {error && <p className="mb-4 text-sm text-red-500" role="alert">{error}</p>}
-      {comments.length === 0 ? (
-        <p className="text-muted">Nothing pending.</p>
-      ) : (
+      {comments.length === 0 ? <p className="text-muted">Nothing pending.</p> : (
         <ul className="space-y-4">
           {comments.map((comment) => (
             <li key={comment.id} className="rounded-2xl border border-border bg-card p-5">

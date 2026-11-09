@@ -1,47 +1,52 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes, scryptSync } from "node:crypto";
 import {
-  authorizeAdminSession,
-  createSessionToken,
-  hashSessionToken,
-  getAdminAuthClientKey,
-  getAdminTokenFromBody,
-  isSameOrigin,
-  verifyAdminToken,
+  authorizeAdminSession, createSessionToken, hashSessionToken,
+  getAdminAuthClientKey, getAdminCredentialsFromBody, isSameOrigin,
+  safeEqual, verifyAdminPassword,
 } from "../src/lib/admin-session.ts";
 
-test("admin token comparison accepts only an exact configured token", () => {
-  assert.equal(verifyAdminToken("correct-secret", "correct-secret"), true);
-  assert.equal(verifyAdminToken("wrong-secret", "correct-secret"), false);
-  assert.equal(verifyAdminToken("short", "correct-secret"), false);
-  assert.equal(verifyAdminToken("anything", undefined), false);
+function passwordHash(password) {
+  const salt = randomBytes(16);
+  const key = scryptSync(password, salt, 64, { N: 65_536, r: 8, p: 1, maxmem: 128 * 1024 * 1024 });
+  return `scrypt$65536$8$1$${salt.toString("base64url")}$${key.toString("base64url")}`;
+}
+
+test("credential parsing rejects malformed login payloads", () => {
+  assert.equal(getAdminCredentialsFromBody(null), null);
+  assert.equal(getAdminCredentialsFromBody([]), null);
+  assert.equal(getAdminCredentialsFromBody({ username: "admin" }), null);
+  assert.equal(getAdminCredentialsFromBody({ username: 4, password: "secret" }), null);
+  assert.equal(getAdminCredentialsFromBody({ username: "admin", password: "x".repeat(1025) }), null);
+  assert.deepEqual(getAdminCredentialsFromBody({ username: " admin ", password: "passphrase" }), { username: "admin", password: "passphrase" });
 });
 
-test("malformed admin login payloads are rejected", () => {
-  assert.equal(getAdminTokenFromBody(null), null);
-  assert.equal(getAdminTokenFromBody([]), null);
-  assert.equal(getAdminTokenFromBody({}), null);
-  assert.equal(getAdminTokenFromBody({ token: 42 }), null);
-  assert.equal(getAdminTokenFromBody({ token: "" }), null);
-  assert.equal(getAdminTokenFromBody({ token: "x".repeat(1025) }), null);
-  assert.equal(getAdminTokenFromBody({ token: "valid-candidate" }), "valid-candidate");
+test("username comparisons are constant-time and exact", () => {
+  assert.equal(safeEqual("admin@example.test", "admin@example.test"), true);
+  assert.equal(safeEqual("admin", "Admin"), false);
+  assert.equal(safeEqual("short", "a-longer-value"), false);
 });
 
-test("admin authentication client keys use validated proxy IPs and a keyed hash", () => {
-  const request = new Request("https://example.test/api/admin/session", {
-    headers: { "x-vercel-forwarded-for": "203.0.113.8" },
-  });
-  const key = getAdminAuthClientKey(request, "server-secret");
+test("scrypt password hashes verify and malformed hashes fail closed", async () => {
+  const encoded = passwordHash("a-very-long-and-strong-test-password");
+  assert.equal(await verifyAdminPassword("a-very-long-and-strong-test-password", encoded), true);
+  assert.equal(await verifyAdminPassword("wrong-password", encoded), false);
+  assert.equal(await verifyAdminPassword("a-very-long-and-strong-test-password", undefined), false);
+  assert.equal(await verifyAdminPassword("password", "scrypt$1$1$1$bad$bad"), false);
+});
+
+test("admin auth client keys require a strong pepper and validated trusted proxy IP", () => {
+  const request = new Request("https://example.test/api/admin/session", { headers: { "x-vercel-forwarded-for": "203.0.113.8" } });
+  const key = getAdminAuthClientKey(request, "p".repeat(32));
   assert.match(key, /^[a-f0-9]{64}$/);
-  assert.notEqual(key, "203.0.113.8");
+  assert.equal(getAdminAuthClientKey(request, "short"), null);
   assert.equal(getAdminAuthClientKey(request, undefined), null);
-  const spoofableHeaderOnly = new Request("https://example.test/api/admin/session", {
-    headers: { "x-forwarded-for": "203.0.113.8" },
-  });
-  assert.equal(getAdminAuthClientKey(spoofableHeaderOnly, "server-secret"), null);
+  const spoofable = new Request("https://example.test/api/admin/session", { headers: { "x-forwarded-for": "203.0.113.8" } });
+  assert.equal(getAdminAuthClientKey(spoofable, "p".repeat(32)), null);
 });
 
-test("session tokens are random URL-safe values and are stored as one-way hashes", () => {
+test("session tokens are random URL-safe values and stored as one-way hashes", () => {
   const first = createSessionToken();
   const second = createSessionToken();
   assert.notEqual(first, second);
@@ -52,37 +57,23 @@ test("session tokens are random URL-safe values and are stored as one-way hashes
 
 test("missing, expired, and revoked admin sessions are rejected", async () => {
   let lookedUpHash = "";
-  const lookup = async (hash) => {
-    lookedUpHash = hash;
-    return false;
-  };
+  const lookup = async (hash) => { lookedUpHash = hash; return false; };
   assert.equal(await authorizeAdminSession(undefined, lookup), false);
   assert.equal(lookedUpHash, "");
   assert.equal(await authorizeAdminSession("expired-session", lookup), false);
   assert.equal(lookedUpHash, hashSessionToken("expired-session"));
-  assert.equal(await authorizeAdminSession("revoked-session", lookup), false);
-  assert.equal(lookedUpHash, hashSessionToken("revoked-session"));
 });
 
-test("active admin sessions are accepted only when the persistent lookup succeeds", async () => {
+test("active admin sessions require successful persistent lookup", async () => {
   const token = "active-session";
-  assert.equal(
-    await authorizeAdminSession(token, async (hash) => hash === hashSessionToken(token)),
-    true
-  );
+  assert.equal(await authorizeAdminSession(token, async (hash) => hash === hashSessionToken(token)), true);
 });
 
 test("state-changing requests require an exact same-origin Origin header", () => {
-  const sameOrigin = new Request("https://example.test/api/admin/session", {
-    method: "POST",
-    headers: { origin: "https://example.test" },
-  });
-  const foreignOrigin = new Request("https://example.test/api/admin/session", {
-    method: "POST",
-    headers: { origin: "https://attacker.test" },
-  });
-  const missingOrigin = new Request("https://example.test/api/admin/session", { method: "POST" });
-  assert.equal(isSameOrigin(sameOrigin), true);
-  assert.equal(isSameOrigin(foreignOrigin), false);
-  assert.equal(isSameOrigin(missingOrigin), false);
+  const same = new Request("https://example.test/api/admin/session", { method: "POST", headers: { origin: "https://example.test" } });
+  const foreign = new Request("https://example.test/api/admin/session", { method: "POST", headers: { origin: "https://attacker.test" } });
+  const missing = new Request("https://example.test/api/admin/session", { method: "POST" });
+  assert.equal(isSameOrigin(same), true);
+  assert.equal(isSameOrigin(foreign), false);
+  assert.equal(isSameOrigin(missing), false);
 });
