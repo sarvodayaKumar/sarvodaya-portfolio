@@ -20,6 +20,10 @@ export default function AdminMfaPage() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [regenerateCode, setRegenerateCode] = useState("");
   const [regenerating, setRegenerating] = useState(false);
+  const [mfaVerified, setMfaVerified] = useState(false);
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableCode, setDisableCode] = useState("");
+  const [disabling, setDisabling] = useState(false);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/admin/mfa", { cache: "no-store" });
@@ -27,10 +31,13 @@ export default function AdminMfaPage() {
       const data = await response.json();
       if (data.mode === "challenge") {
         setMode("challenge");
+        setMfaVerified(false);
         return;
       }
       setMode("enrollment");
       setEnabled(Boolean(data.enabled));
+      const session = await fetch("/api/admin/session", { cache: "no-store" });
+      setMfaVerified(session.ok);
       return;
     }
     const challenge = await fetch("/api/admin/mfa/challenge", { cache: "no-store" });
@@ -139,6 +146,22 @@ export default function AdminMfaPage() {
     } finally { setRegenerating(false); }
   }
 
+  async function disableMfa() {
+    setDisabling(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/admin/mfa", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: disablePassword, code: disableCode }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error ?? "Unable to disable authenticator.");
+      window.location.assign("/admin/comments");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to disable authenticator.");
+    } finally { setDisabling(false); }
+  }
+
   async function signOut() {
     await fetch("/api/admin/session", { method: "DELETE" });
     window.location.assign("/admin/comments");
@@ -216,7 +239,20 @@ export default function AdminMfaPage() {
                   </form>
                 </div>
               )}
-              <p className="mt-4 text-sm text-muted">New password sign-ins require a valid authenticator code or an email OTP. Password-only sessions cannot access admin APIs.</p>
+              <p className="mt-4 text-sm text-muted">New password sign-ins require a valid authenticator code, email OTP, or unused recovery code. Password-only sessions cannot access admin APIs.</p>
+              {mfaVerified ? (
+                <div className="mt-6 rounded-xl border border-border bg-background p-4">
+                  <h3 className="text-sm font-semibold text-foreground">Disable authenticator</h3>
+                  <p className="mt-1 text-xs text-muted">This requires your administrator password and a fresh authenticator code. All active admin sessions will be revoked; you must enroll again before accessing admin APIs.</p>
+                  <form onSubmit={(event) => { event.preventDefault(); disableMfa(); }} className="mt-3 space-y-3">
+                    <input type="password" autoComplete="current-password" required value={disablePassword} onChange={(event) => setDisablePassword(event.target.value)} placeholder="Administrator password" className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground" />
+                    <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={disableCode} onChange={(event) => setDisableCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Current six-digit code" className="w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm text-foreground" />
+                    <button disabled={disabling || disableCode.length !== 6 || !disablePassword} className="rounded-full border border-red-500 px-4 py-2 text-xs text-red-500 disabled:opacity-50">{disabling ? "Disabling…" : "Disable authenticator"}</button>
+                  </form>
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-muted">Sign out and complete an MFA sign-in before changing recovery settings.</p>
+              )}
               <button onClick={signOut} className="mt-5 rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background">Sign out</button>
             </>
           ) : (
