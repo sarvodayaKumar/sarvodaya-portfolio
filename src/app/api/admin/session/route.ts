@@ -117,7 +117,8 @@ export async function POST(request: NextRequest) {
     const sessionToken = createSessionToken();
     const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
     await createAdminSession(hashSessionToken(sessionToken), expiresAt, false);
-    const response = NextResponse.json({ ok: true, mfaRequired: false }, { headers: RESPONSE_HEADERS });
+    // Password authentication grants only the restricted enrollment session. All admin APIs require MFA assurance.
+    const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: RESPONSE_HEADERS });
     setSessionCookie(response, sessionToken);
     return response;
   } catch {
