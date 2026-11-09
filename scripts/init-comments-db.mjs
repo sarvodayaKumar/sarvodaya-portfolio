@@ -51,6 +51,7 @@ await sql`
   )
 `;
 await sql`CREATE INDEX IF NOT EXISTS admin_auth_attempts_window_idx ON admin_auth_attempts (window_started_at)`;
+await sql`ALTER TABLE admin_mfa_credentials ADD COLUMN IF NOT EXISTS pending_attempts INTEGER NOT NULL DEFAULT 0`;
 await sql`
   CREATE TABLE IF NOT EXISTS admin_mfa_credentials (
     admin_id TEXT PRIMARY KEY CHECK (admin_id = 'primary'),
@@ -58,6 +59,7 @@ await sql`
     enabled BOOLEAN NOT NULL DEFAULT false,
     last_used_counter BIGINT NOT NULL DEFAULT -1,
     pending_expires_at TIMESTAMPTZ,
+    pending_attempts INTEGER NOT NULL DEFAULT 0 CHECK (pending_attempts >= 0 AND pending_attempts <= 5),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )
