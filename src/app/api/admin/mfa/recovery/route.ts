@@ -60,6 +60,7 @@ export async function PUT(request: NextRequest) {
 
   const recoveryHash = hashOneTimeCode(body.code.replace(/-/g, "").toUpperCase(), "mfa-recovery");
   if (!(await completeAdminMfaRecoveryChallenge(challengeHash, recoveryHash))) {
+    await auditAdminAuthEvent(request, "recovery_code", false);
     const attempts = await recordAdminMfaChallengeFailure(challengeHash);
     const response = NextResponse.json({ error: attempts >= 5 ? "Recovery attempts exceeded. Sign in again." : "Invalid or already used recovery code." }, {
       status: 401, headers: HEADERS,
@@ -68,6 +69,7 @@ export async function PUT(request: NextRequest) {
     return response;
   }
 
+  await auditAdminAuthEvent(request, "recovery_code", true);
   const priorSession = request.cookies.get("admin_session")?.value;
   if (priorSession) await revokeAdminSession(hashSessionToken(priorSession));
   const token = createSessionToken();
@@ -104,13 +106,18 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   }
-  if (counter === null) return NextResponse.json({ error: "Invalid authenticator code" }, { status: 401, headers: HEADERS });
+  if (counter === null) {
+    await auditAdminAuthEvent(request, "recovery_code", false);
+    return NextResponse.json({ error: "Invalid authenticator code" }, { status: 401, headers: HEADERS });
+  }
 
   const recoveryCodes = generateAdminRecoveryCodes(10);
   const hashes = recoveryCodes.map((code) => hashOneTimeCode(code.replace(/-/g, ""), "mfa-recovery"));
   if (!(await regenerateAdminRecoveryCodes(counter, hashes))) {
+    await auditAdminAuthEvent(request, "recovery_code", false);
     return NextResponse.json({ error: "Authenticator code was already used. Wait for the next code and retry." }, { status: 409, headers: HEADERS });
   }
+  await auditAdminAuthEvent(request, "recovery_code", true);
   return NextResponse.json({
     ok: true,
     recoveryCodes,
