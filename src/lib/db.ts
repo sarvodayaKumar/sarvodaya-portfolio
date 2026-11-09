@@ -111,10 +111,10 @@ export async function getAdminSessionWithMfaPolicy(tokenHash: string): Promise<b
   return rows.length > 0;
 }
 
-export async function createAdminMfaChallenge(tokenHash: string, expiresAt: Date): Promise<void> {
+export async function createAdminMfaChallenge(tokenHash: string, expiresAt: Date, emailOtpAllowed = true): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM admin_mfa_challenges WHERE expires_at <= now()`;
-  await sql`INSERT INTO admin_mfa_challenges (token_hash, expires_at) VALUES (${tokenHash}, ${expiresAt.toISOString()})`;
+  await sql`INSERT INTO admin_mfa_challenges (token_hash, expires_at, email_otp_allowed) VALUES (${tokenHash}, ${expiresAt.toISOString()}, ${emailOtpAllowed})`;
 }
 
 export async function getValidAdminMfaChallenge(tokenHash: string): Promise<boolean> {
@@ -352,12 +352,11 @@ export async function recordAdminTotpEnrollmentFailure(): Promise<number> {
 /** Store a short-lived email OTP for an existing MFA login challenge; at most three sends. */
 export async function createAdminEmailOtpChallenge(challengeHash: string, codeHash: string, expiresAt: Date): Promise<boolean> {
   const sql = getSql();
-  await sql`DELETE FROM admin_email_otp_challenges WHERE expires_at <= now()`;
   const rows = await sql`
     INSERT INTO admin_email_otp_challenges (challenge_hash, code_hash, expires_at, attempts, sends)
     SELECT token_hash, ${codeHash}, ${expiresAt.toISOString()}, 0, 1
     FROM admin_mfa_challenges
-    WHERE token_hash = ${challengeHash} AND expires_at > now() AND attempts < 5
+    WHERE token_hash = ${challengeHash} AND expires_at > now() AND attempts < 5 AND email_otp_allowed = true
     ON CONFLICT (challenge_hash) DO UPDATE SET
       code_hash = EXCLUDED.code_hash,
       expires_at = EXCLUDED.expires_at,
