@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   }
   if (counter === null) {
+    await auditAdminAuthEvent(request, "totp_challenge", false);
     const attempts = await recordAdminMfaChallengeFailure(challengeHash);
     const response = NextResponse.json({ error: "Invalid authenticator code" }, {
       status: 401, headers: { ...HEADERS, ...(attempts >= 5 ? { "Retry-After": "300" } : {}) },
