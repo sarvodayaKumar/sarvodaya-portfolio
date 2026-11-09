@@ -46,11 +46,39 @@ npm run test:e2e
 
 The Playwright configuration starts the production server on `http://127.0.0.1:3000`. axe-core checks WCAG 2.0/2.1 A and AA rules on the homepage and blog index; critical violations fail the suite, while serious violations are attached as test annotations for remediation. CI uploads traces, screenshots, videos, and the HTML report when browser tests fail.
 
-## Admin comment moderation
+## Administrator authentication and API access
 
-Admin sign-in exchanges the server-only `ADMIN_TOKEN` for an eight-hour random session. The browser never stores or sends the admin token after sign-in. Session identifiers are stored only as SHA-256 hashes in the `admin_sessions` table and delivered in an HttpOnly, Secure (in production), SameSite=Strict cookie scoped to `/api`. Sign-out revokes the server-side session. Admin sign-in and moderation mutations validate the request Origin. Failed sign-ins are rate-limited to five attempts per client IP in a rolling 15-minute window; the IP is validated from the trusted Vercel edge header (or a trusted proxy `x-real-ip` header) and stored only as an HMAC keyed with the server-only `ADMIN_TOKEN`. Authentication failures use generic responses, and rate-limit state is stored in `admin_auth_attempts`.
+The admin area uses one configured administrator identity; there is no public registration or password reset endpoint.
 
-After deploying the session changes, run the database initializer once to create the `admin_sessions` and `admin_auth_attempts` tables:
+Configure these **server-only Vercel environment variables** for every environment (Production, Preview, and Development as applicable):
+
+- `ADMIN_USERNAME`: administrator username or email.
+- `ADMIN_PASSWORD_HASH`: scrypt password hash generated locally; never store the plaintext password in Vercel or source control.
+- `ADMIN_AUTH_PEPPER`: independent random secret of at least 32 characters, used to HMAC trusted client IPs for login throttling.
+- `DATABASE_URL`: Neon database connection string used for sessions and persistent login throttling.
+
+Generate a password hash locally. Use a password of at least 14 characters and do not paste the plaintext into chat, GitHub, or source control:
+
+```bash
+read -s -p "New admin password: " ADMIN_PASSWORD; echo
+printf '%s' "$ADMIN_PASSWORD" | node scripts/hash-admin-password.mjs
+unset ADMIN_PASSWORD
+```
+
+Copy the single hash output into `ADMIN_PASSWORD_HASH`. Generate a separate pepper with `openssl rand -hex 32` and set it as `ADMIN_AUTH_PEPPER`. Do not prefix these variables with `NEXT_PUBLIC_`.
+
+Sign in at `/admin/comments`; the same server-side session authorizes the operations dashboard at `/admin`. Password verification uses scrypt (N=65536, r=8, p=1, 64-byte output). Login failures return generic responses and are limited to five attempts per trusted client IP per 15-minute window. If the trusted Vercel/proxy IP header or database is unavailable, login fails closed.
+
+Successful sign-in creates a random eight-hour session. Only its SHA-256 hash is stored in `admin_sessions`; the browser receives an HttpOnly, SameSite=Strict cookie (Secure in production) scoped to `/api`. Sign-out revokes the server-side session. Admin API handlers independently validate the session on every request; hiding admin pages in the UI is not an authorization boundary.
+
+### API access policy
+
+- **Private — session required:** `/api/admin/operations`, `/api/admin/analytics` (when analytics is deployed), and `/api/comments/moderate`.
+- **Public by design:** `GET /api/comments` returns approved comments only; `POST /api/comments` accepts moderated submissions and enforces same-origin, request-size, input, and rate limits. The analytics ingestion endpoint, when deployed, is public by design and accepts only bounded same-origin aggregate events.
+- **Authentication boundary:** `/api/admin/session` exposes only session status, same-origin credential sign-in, and same-origin sign-out. It never exposes secrets or admin data.
+- New API routes must be explicitly added to the access-policy test allowlist or protected with `authorizeAdminSession`.
+
+After deploying the session/database changes, run the idempotent database initializer once against the target `DATABASE_URL`:
 
 ```bash
 npm run db:init-comments
