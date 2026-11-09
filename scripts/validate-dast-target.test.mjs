@@ -17,12 +17,13 @@ test('rejects an unlisted host, including production', () => {
   assert.notEqual(run('https://www.example.test').status, 0);
 });
 test('rejects HTTP, credentials, query strings and fragments', () => {
-  for (const target of ['http://staging.example.test', 'https://user:pass@staging.example.test', 'https://staging.example.test/?token=secret', 'https://staging.example.test/#fragment']) {
+  for (const target of ['http://staging.example.test', 'https://user:pass@staging.example.test', 'https://staging.example.test/?token=secret', 'https://staging.example.test/#fragment', 'https://staging.example.test\nother']) {
     assert.notEqual(run(target).status, 0, target);
   }
 });
-test('fails closed when the allowlist is missing', () => {
+test('fails closed when either host list is missing', () => {
   assert.notEqual(run('https://staging.example.test', { DAST_ALLOWED_HOSTS: '' }).status, 0);
+  assert.notEqual(run('https://staging.example.test', { DAST_PRODUCTION_HOSTS: '' }).status, 0);
 });
 test('rejects localhost and IP-address targets', () => {
   assert.notEqual(run('https://localhost').status, 0);
