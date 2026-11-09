@@ -3,7 +3,6 @@ import {
   createAdminEmailMagicLink,
   consumeAdminEmailMagicLink,
   createAdminMfaChallenge,
-  createAdminSession,
   getAdminTotpCredential,
   recordFailedAdminAuthAttempt,
   revokeAdminSession,
@@ -13,7 +12,6 @@ import {
   hashMagicLinkToken,
 } from "@/lib/admin-mfa";
 import {
-  createSessionToken,
   getAdminMfaAccountKey,
   getAdminMfaClientKey,
   hashSessionToken,
@@ -28,7 +26,6 @@ export const dynamic = "force-dynamic";
 
 const HEADERS = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 const GENERIC = { ok: true, message: "If the address is eligible, a sign-in link will be sent." };
-const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const CHALLENGE_TTL_SECONDS = 5 * 60;
 const LINK_TTL_SECONDS = 10 * 60;
 
@@ -142,14 +139,21 @@ export async function PUT(request: NextRequest) {
     await auditAdminAuthEvent(request, "email_magic_link", false);
     return NextResponse.json({ error: "Sign-in link is invalid, expired, or already used" }, { status: 401, headers: HEADERS });
   }
-  await auditAdminAuthEvent(request, "email_magic_link", true);
-
   let credential;
   try {
     credential = await getAdminTotpCredential();
   } catch {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   }
+  // A mailbox-only link must never bootstrap the first MFA factor. Initial enrollment
+  // requires the password-authenticated restricted session; links are usable after TOTP exists.
+  if (!credential?.enabled) {
+    await auditAdminAuthEvent(request, "email_magic_link", false);
+    return NextResponse.json({ error: "Use password sign-in to complete first-time authenticator enrollment" }, {
+      status: 409, headers: HEADERS,
+    });
+  }
+  await auditAdminAuthEvent(request, "email_magic_link", true);
   const previousSession = request.cookies.get("admin_session")?.value;
   if (previousSession) await revokeAdminSession(hashSessionToken(previousSession));
   const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: HEADERS });
@@ -161,30 +165,18 @@ export async function PUT(request: NextRequest) {
     httpOnly: true, secure: process.env.NODE_ENV === "production",
     sameSite: "strict", path: "/api/admin", maxAge: 0,
   });
-  if (credential?.enabled) {
-    const challengeToken = createEmailMagicLinkToken();
-    await createAdminMfaChallenge(
-      hashMagicLinkToken(challengeToken),
-      new Date(Date.now() + CHALLENGE_TTL_SECONDS * 1000),
-      false,
-    );
-    response.cookies.set("admin_mfa_challenge", challengeToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/api/admin",
-      maxAge: CHALLENGE_TTL_SECONDS,
-    });
-  } else {
-    const sessionToken = createSessionToken();
-    await createAdminSession(hashSessionToken(sessionToken), new Date(Date.now() + SESSION_TTL_SECONDS * 1000), false);
-    response.cookies.set("admin_session", sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/api",
-      maxAge: SESSION_TTL_SECONDS,
-    });
-  }
+  const challengeToken = createEmailMagicLinkToken();
+  await createAdminMfaChallenge(
+    hashMagicLinkToken(challengeToken),
+    new Date(Date.now() + CHALLENGE_TTL_SECONDS * 1000),
+    false,
+  );
+  response.cookies.set("admin_mfa_challenge", challengeToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/api/admin",
+    maxAge: CHALLENGE_TTL_SECONDS,
+  });
   return response;
 }
