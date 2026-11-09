@@ -15,6 +15,7 @@ import {
   isSameOrigin,
   safeEqual,
   verifyAdminPassword,
+  getAdminAuthAccountKey,
   getAdminAuthClientKey,
   getAdminCredentialsFromBody,
 } from "@/lib/admin-session";
@@ -75,15 +76,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: RESPONSE_HEADERS });
   }
 
-  // Increment before the expensive bcrypt operation so the persistent limit also
-  // protects the password verifier from repeated CPU/memory-exhaustion attempts.
-  let attempts: number;
+  // Persist both IP and account-wide buckets before the expensive bcrypt operation.
+  const accountKey = username ? getAdminAuthAccountKey(username, process.env.ADMIN_AUTH_PEPPER) : null;
+  const usernameMatches = Boolean(credentials && username && safeEqual(credentials.username.toLowerCase(), username.trim().toLowerCase()));
+  let attempts = 0;
+  let accountAttempts = 0;
   try {
     attempts = await recordFailedAdminAuthAttempt(clientKey, AUTH_WINDOW_SECONDS);
+    if (usernameMatches && accountKey) {
+      accountAttempts = await recordFailedAdminAuthAttempt(accountKey, AUTH_WINDOW_SECONDS);
+    }
   } catch {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: RESPONSE_HEADERS });
   }
-  if (attempts > MAX_FAILED_AUTH_ATTEMPTS) {
+  if (attempts > MAX_FAILED_AUTH_ATTEMPTS || accountAttempts > MAX_FAILED_AUTH_ATTEMPTS) {
     return NextResponse.json(AUTH_FAILURE, {
       status: 429, headers: { ...RESPONSE_HEADERS, "Retry-After": String(AUTH_WINDOW_SECONDS) },
     });
@@ -91,9 +97,8 @@ export async function POST(request: NextRequest) {
 
   let valid = false;
   if (credentials && username && passwordHash) {
-    const usernameValid = safeEqual(credentials.username.toLowerCase(), username.trim().toLowerCase());
     const passwordValid = await verifyAdminPassword(credentials.password, passwordHash);
-    valid = usernameValid && passwordValid;
+    valid = usernameMatches && passwordValid;
   }
   if (!valid) {
     await auditAdminAuthEvent(request, "password_sign_in", false);
@@ -103,6 +108,7 @@ export async function POST(request: NextRequest) {
   try {
     await auditAdminAuthEvent(request, "password_sign_in", true);
     await clearAdminAuthAttempts(clientKey);
+    if (accountKey) await clearAdminAuthAttempts(accountKey);
     const credential = await getAdminTotpCredential();
     if (credential?.enabled) {
       const challengeToken = createEmailMagicLinkToken();
