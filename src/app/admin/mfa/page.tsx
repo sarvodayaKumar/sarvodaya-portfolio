@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 type Mode = "loading" | "challenge" | "enrollment" | "signed-out";
 type Enrollment = { secret: string; provisioningUri: string; expiresInSeconds: number };
@@ -15,7 +15,7 @@ export default function AdminMfaPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const response = await fetch("/api/admin/mfa", { cache: "no-store" });
     if (response.ok) {
       const data = await response.json();
@@ -26,14 +26,14 @@ export default function AdminMfaPage() {
     const challenge = await fetch("/api/admin/mfa/challenge", { cache: "no-store" });
     const challengeData = await challenge.json().catch(() => ({}));
     setMode(challengeData.pending ? "challenge" : "signed-out");
-  }
+  }, []);
 
   useEffect(() => {
     refresh().catch(() => {
       setError("Unable to check MFA status.");
       setMode("signed-out");
     });
-  }, []);
+  }, [refresh]);
 
   async function startEnrollment() {
     setBusy(true); setError(""); setNotice("");
