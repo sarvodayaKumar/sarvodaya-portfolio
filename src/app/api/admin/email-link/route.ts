@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
         origin,
         new Date(Date.now() + LINK_TTL_SECONDS * 1000),
       );
-      const url = new URL("/api/admin/email-link", origin);
-      url.searchParams.set("token", token);
+      const url = new URL("/admin/email-confirm", origin);
+      url.hash = "token=" + token;
       await sendAdminMagicLink(url.toString());
     } catch {
       // Keep the response indistinguishable from an ineligible address.
@@ -73,25 +73,30 @@ export async function POST(request: NextRequest) {
   });
 }
 
-export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get("token") ?? "";
-  const origin = new URL(request.url).origin;
-  let valid = false;
-  if (token.length >= 40 && token.length <= 128) {
-    try {
-      valid = await consumeAdminEmailMagicLink(hashMagicLinkToken(token), origin);
-    } catch {
-      valid = false;
-    }
-  }
-  if (!valid) {
-    return NextResponse.redirect(new URL("/admin/comments?auth=invalid", request.url), {
-      headers: HEADERS,
-    });
+export async function PUT(request: NextRequest) {
+  if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
+  const length = Number(request.headers.get("content-length") ?? 0);
+  if (length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const raw = await request.text();
+  if (raw.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  let body: { token?: unknown } | null = null;
+  try { body = JSON.parse(raw) as { token?: unknown }; } catch { /* invalid token */ }
+  const token = typeof body?.token === "string" ? body.token : "";
+  if (token.length < 40 || token.length > 128) {
+    return NextResponse.json({ error: "Sign-in link is invalid or expired" }, { status: 401, headers: HEADERS });
   }
 
+  const origin = new URL(request.url).origin;
+  let valid = false;
+  try {
+    valid = await consumeAdminEmailMagicLink(hashMagicLinkToken(token), origin);
+  } catch {
+    valid = false;
+  }
+  if (!valid) return NextResponse.json({ error: "Sign-in link is invalid, expired, or already used" }, { status: 401, headers: HEADERS });
+
   const credential = await getAdminTotpCredential().catch(() => null);
-  const response = NextResponse.redirect(new URL("/admin/mfa", request.url), { headers: HEADERS });
+  const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: HEADERS });
   if (credential?.enabled) {
     const challengeToken = createEmailMagicLinkToken();
     await createAdminMfaChallenge(
