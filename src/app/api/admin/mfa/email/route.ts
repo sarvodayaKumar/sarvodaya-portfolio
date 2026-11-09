@@ -1,3 +1,4 @@
+import { readLimitedRequestBody } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import {
   clearAdminAuthAttempts,
@@ -35,10 +36,6 @@ function clearChallengeCookie(response: NextResponse) {
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
-  const rawBody = await request.text();
-  if (rawBody.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   const raw = request.cookies.get(COOKIE)?.value;
   if (!raw) return NextResponse.json({ error: "Authentication challenge expired" }, { status: 401, headers: HEADERS });
   const challengeHash = hashMagicLinkToken(raw);
@@ -79,10 +76,8 @@ export async function PUT(request: NextRequest) {
   if (!(await getValidAdminMfaChallenge(challengeHash))) {
     return NextResponse.json({ error: "Authentication challenge expired" }, { status: 401, headers: HEADERS });
   }
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
-  const rawBody = await request.text();
-  if (rawBody.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const rawBody = await readLimitedRequestBody(request, 1024);
+  if (rawBody === null) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   let body: { code?: unknown } | null = null;
   try { body = JSON.parse(rawBody) as { code?: unknown }; } catch { /* generic invalid body */ }
   if (!body || typeof body.code !== "string" || !/^\d{6}$/.test(body.code)) {
