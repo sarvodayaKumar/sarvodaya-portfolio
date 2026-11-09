@@ -32,10 +32,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: HEADERS });
   }
   const credential = await getAdminTotpCredential();
+  const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const canManage = await authorizeAdminSession(sessionToken, (tokenHash) => getRecentAdminMfaSession(tokenHash, 10 * 60));
   return NextResponse.json({
     mode: "enrollment",
     enabled: credential?.enabled ?? false,
     pending: Boolean(credential && !credential.enabled),
+    canManage,
   }, { headers: HEADERS });
 }
 
