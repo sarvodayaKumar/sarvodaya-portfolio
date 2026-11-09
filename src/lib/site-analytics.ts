@@ -1,4 +1,5 @@
-import { BLOG_HOST, SITE_HOST } from "@/lib/site";
+const SITE_HOST = (process.env.NEXT_PUBLIC_SITE_HOST ?? "sarvodaya.dev").toLowerCase();
+const BLOG_HOST = (process.env.NEXT_PUBLIC_BLOG_HOST ?? "blog.sarvodaya.dev").toLowerCase();
 
 export type PageViewEvent = {
   path: string;
@@ -8,10 +9,10 @@ export type PageViewEvent = {
 const MAX_PATH_LENGTH = 300;
 const MAX_HOST_LENGTH = 253;
 const INTERNAL_HOSTS = new Set([
-  SITE_HOST.toLowerCase(),
-  BLOG_HOST.toLowerCase(),
-  `www.${SITE_HOST.toLowerCase()}`,
-  `www.${BLOG_HOST.toLowerCase()}`,
+  SITE_HOST,
+  BLOG_HOST,
+  `www.${SITE_HOST}`,
+  `www.${BLOG_HOST}`,
 ]);
 
 /** Accept only a same-site pathname. Query strings, fragments, and full URLs are never stored. */
