@@ -88,13 +88,50 @@ export async function deleteComment(id: number): Promise<void> {
   await sql`DELETE FROM comments WHERE id = ${id}`;
 }
 
-export async function createAdminSession(tokenHash: string, expiresAt: Date): Promise<void> {
+
+export async function createAdminSession(tokenHash: string, expiresAt: Date, mfaVerified = false): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
   await sql`
-    INSERT INTO admin_sessions (token_hash, expires_at)
-    VALUES (${tokenHash}, ${expiresAt.toISOString()})
+    INSERT INTO admin_sessions (token_hash, expires_at, mfa_verified)
+    VALUES (${tokenHash}, ${expiresAt.toISOString()}, ${mfaVerified})
   `;
+}
+
+/** Session assurance is required only after an authenticator has been activated. */
+export async function getAdminSessionWithMfaPolicy(tokenHash: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT 1 FROM admin_sessions AS sessions
+    WHERE sessions.token_hash = ${tokenHash} AND sessions.expires_at > now()
+      AND (NOT EXISTS (SELECT 1 FROM admin_mfa_credentials WHERE admin_id = 'primary' AND enabled = true)
+        OR sessions.mfa_verified = true)
+    LIMIT 1
+  `;
+  return rows.length > 0;
+}
+
+export async function createAdminMfaChallenge(tokenHash: string, expiresAt: Date): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM admin_mfa_challenges WHERE expires_at <= now()`;
+  await sql`INSERT INTO admin_mfa_challenges (token_hash, expires_at) VALUES (${tokenHash}, ${expiresAt.toISOString()})`;
+}
+
+export async function getValidAdminMfaChallenge(tokenHash: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`SELECT 1 FROM admin_mfa_challenges WHERE token_hash = ${tokenHash} AND expires_at > now() AND attempts < 5 LIMIT 1`;
+  return rows.length === 1;
+}
+
+export async function recordAdminMfaChallengeFailure(tokenHash: string): Promise<number> {
+  const sql = getSql();
+  const rows = await sql`UPDATE admin_mfa_challenges SET attempts = attempts + 1 WHERE token_hash = ${tokenHash} AND expires_at > now() RETURNING attempts`;
+  return Number(rows[0]?.attempts ?? 5);
+}
+
+export async function consumeAdminMfaChallenge(tokenHash: string): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM admin_mfa_challenges WHERE token_hash = ${tokenHash}`;
 }
 
 export async function getValidAdminSession(tokenHash: string): Promise<boolean> {
