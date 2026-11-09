@@ -1,4 +1,5 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { isIP } from "node:net";
 
 const SESSION_BYTES = 32;
 
@@ -7,6 +8,21 @@ export function verifyAdminToken(candidate: string, expected: string | undefined
   const candidateBytes = Buffer.from(candidate);
   const expectedBytes = Buffer.from(expected);
   return candidateBytes.length === expectedBytes.length && timingSafeEqual(candidateBytes, expectedBytes);
+}
+
+export function getAdminTokenFromBody(input: unknown): string | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const token = (input as Record<string, unknown>).token;
+  return typeof token === "string" && token.length > 0 && token.length <= 1024 ? token : null;
+}
+
+/** Prefer Vercel's edge-provided client IP. Never trust a client-supplied x-forwarded-for chain. */
+export function getAdminAuthClientKey(request: Request, pepper: string | undefined): string | null {
+  if (!pepper) return null;
+  const rawIp = request.headers.get("x-vercel-forwarded-for") ?? request.headers.get("x-real-ip");
+  const ip = rawIp?.split(",")[0]?.trim();
+  if (!ip || isIP(ip) === 0) return null;
+  return createHmac("sha256", pepper).update(ip).digest("hex");
 }
 
 export function createSessionToken(): string {

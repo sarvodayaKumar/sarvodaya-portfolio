@@ -4,6 +4,8 @@ import {
   authorizeAdminSession,
   createSessionToken,
   hashSessionToken,
+  getAdminAuthClientKey,
+  getAdminTokenFromBody,
   isSameOrigin,
   verifyAdminToken,
 } from "../src/lib/admin-session.ts";
@@ -13,6 +15,30 @@ test("admin token comparison accepts only an exact configured token", () => {
   assert.equal(verifyAdminToken("wrong-secret", "correct-secret"), false);
   assert.equal(verifyAdminToken("short", "correct-secret"), false);
   assert.equal(verifyAdminToken("anything", undefined), false);
+});
+
+test("malformed admin login payloads are rejected", () => {
+  assert.equal(getAdminTokenFromBody(null), null);
+  assert.equal(getAdminTokenFromBody([]), null);
+  assert.equal(getAdminTokenFromBody({}), null);
+  assert.equal(getAdminTokenFromBody({ token: 42 }), null);
+  assert.equal(getAdminTokenFromBody({ token: "" }), null);
+  assert.equal(getAdminTokenFromBody({ token: "x".repeat(1025) }), null);
+  assert.equal(getAdminTokenFromBody({ token: "valid-candidate" }), "valid-candidate");
+});
+
+test("admin authentication client keys use validated proxy IPs and a keyed hash", () => {
+  const request = new Request("https://example.test/api/admin/session", {
+    headers: { "x-vercel-forwarded-for": "203.0.113.8" },
+  });
+  const key = getAdminAuthClientKey(request, "server-secret");
+  assert.match(key, /^[a-f0-9]{64}$/);
+  assert.notEqual(key, "203.0.113.8");
+  assert.equal(getAdminAuthClientKey(request, undefined), null);
+  const spoofableHeaderOnly = new Request("https://example.test/api/admin/session", {
+    headers: { "x-forwarded-for": "203.0.113.8" },
+  });
+  assert.equal(getAdminAuthClientKey(spoofableHeaderOnly, "server-secret"), null);
 });
 
 test("session tokens are random URL-safe values and are stored as one-way hashes", () => {

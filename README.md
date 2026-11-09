@@ -48,9 +48,9 @@ The Playwright configuration starts the production server on `http://127.0.0.1:3
 
 ## Admin comment moderation
 
-Admin sign-in exchanges the server-only `ADMIN_TOKEN` for an eight-hour random session. The browser never stores or sends the admin token after sign-in. Session identifiers are stored only as SHA-256 hashes in the `admin_sessions` table and delivered in an HttpOnly, Secure (in production), SameSite=Strict cookie scoped to `/api`. Sign-out revokes the server-side session. Admin sign-in and moderation mutations validate the request Origin.
+Admin sign-in exchanges the server-only `ADMIN_TOKEN` for an eight-hour random session. The browser never stores or sends the admin token after sign-in. Session identifiers are stored only as SHA-256 hashes in the `admin_sessions` table and delivered in an HttpOnly, Secure (in production), SameSite=Strict cookie scoped to `/api`. Sign-out revokes the server-side session. Admin sign-in and moderation mutations validate the request Origin. Failed sign-ins are rate-limited to five attempts per client IP in a rolling 15-minute window; the IP is validated from the trusted Vercel edge header (or a trusted proxy `x-real-ip` header) and stored only as an HMAC keyed with the server-only `ADMIN_TOKEN`. Authentication failures use generic responses, and rate-limit state is stored in `admin_auth_attempts`.
 
-After deploying the session changes, run the database initializer once to create the `admin_sessions` table:
+After deploying the session changes, run the database initializer once to create the `admin_sessions` and `admin_auth_attempts` tables:
 
 ```bash
 npm run db:init-comments
