@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteComment, getAllComments, getValidAdminSession, setCommentApproved } from "@/lib/db";
 import { listModerationComments, moderateComment } from "@/lib/comment-service";
-import { hashSessionToken, isSameOrigin } from "@/lib/admin-session";
+import { authorizeAdminSession, isSameOrigin } from "@/lib/admin-session";
 
 export const runtime = "nodejs";
 
 async function isAuthorized(request: NextRequest): Promise<boolean> {
-  const token = request.cookies.get("admin_session")?.value;
-  return !!token && getValidAdminSession(hashSessionToken(token));
+  return authorizeAdminSession(
+    request.cookies.get("admin_session")?.value,
+    getValidAdminSession
+  );
 }
 
 export async function GET(request: NextRequest) {
