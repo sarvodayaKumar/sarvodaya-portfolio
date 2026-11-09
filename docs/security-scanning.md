@@ -14,17 +14,16 @@ Third-party GitHub Actions in the security workflow are pinned to full commit SH
 
 ## Daily email notification
 
-The scheduled 11:00 AM IST run emails the scanner results and dependency severity counts to `sarvodaya.kumar@outlook.com`.
+The scheduled 11:00 AM IST run sends scanner results and dependency severity counts from `Sarvodaya.kumar@outlook.com` to the same mailbox through Microsoft Graph. The workflow uses OAuth 2.0; it does not store or use the mailbox password.
 
-Configure these encrypted GitHub Actions repository secrets under **Settings → Secrets and variables → Actions → New repository secret**:
-- `SMTP_USERNAME`: the sending Outlook mailbox username.
-- `SMTP_PASSWORD`: the mailbox password or app password accepted by the account's SMTP configuration.
+The account address is configured as `OUTLOOK_EMAIL` in the workflow. Add these encrypted GitHub Actions repository secrets under **Settings → Secrets and variables → Actions → New repository secret**:
+- `MS_GRAPH_CLIENT_ID`: the Application (client) ID of an app registration you control.
+- `MS_GRAPH_REFRESH_TOKEN`: a delegated OAuth refresh token authorized by the intended Outlook.com account.
 
-Optional repository variables:
-- `SMTP_SERVER`: defaults to `smtp-mail.outlook.com`.
-- `SMTP_PORT`: defaults to `587` (STARTTLS).
+Configure the Microsoft app registration for personal Microsoft accounts (consumer accounts), add delegated Microsoft Graph permissions `Mail.Send` and `User.Read`, and grant consent. Use the authorization-code flow with PKCE and request `offline_access` so the authorization can be refreshed by the scheduled workflow. The app must support public-client authorization; never put a client secret or mailbox password in the repository. Generate the refresh token while signed in as `Sarvodaya.kumar@outlook.com`. The script verifies that the token belongs to the configured mailbox before sending.
 
-Do not paste SMTP credentials into chat, source files, workflow YAML, or issue comments. Outlook account security settings may restrict SMTP AUTH; if the mailbox does not permit SMTP AUTH, use an approved SMTP relay and set `SMTP_SERVER` / `SMTP_PORT` accordingly. The daily notification job fails visibly when credentials are missing or email delivery fails.
+Do not paste access tokens, refresh tokens, passwords, or client secrets into chat, source files, workflow YAML, or issue comments. Rotate the refresh token if it is exposed. The daily notification job fails visibly when credentials are missing, the token is expired/revoked, account identity does not match, or Microsoft Graph rejects delivery.
+
 
 ## Severity policy
 
