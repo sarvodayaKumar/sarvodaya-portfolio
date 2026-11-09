@@ -70,7 +70,7 @@ unset ADMIN_PASSWORD
 
 Copy the bcrypt hash output into `ADMIN_PASSWORD_HASH`. Existing scrypt hashes are no longer accepted; generate and configure a new bcrypt hash before deploying this change. bcrypt accepts at most 72 UTF-8 bytes. Generate a separate pepper with `openssl rand -hex 32` and set it as `ADMIN_AUTH_PEPPER`. Do not prefix these variables with `NEXT_PUBLIC_`.
 
-Sign in at `/admin/comments`; the same server-side session authorizes the operations dashboard at `/admin`. Password verification uses bcrypt with cost 12. Login failures return generic responses and are limited to five attempts per trusted client IP per 15-minute window. If the trusted Vercel/proxy IP header or database is unavailable, login fails closed.
+Sign in at `/admin/comments`; the same server-side session authorizes the operations dashboard at `/admin`. Password verification uses bcrypt with cost 12. Login failures return generic responses and are limited to five attempts per trusted client IP and five attempts per configured administrator account per 15-minute window. The account bucket uses a keyed digest, not the username. If the trusted Vercel/proxy IP header or database is unavailable, login fails closed.
 
 Password verification creates only a restricted enrollment session. That session is accepted solely by the MFA enrollment endpoints; every protected admin API requires an `mfa_verified=true` session even before enrollment is complete. Sign-in always routes to `/admin/mfa` until an authenticator has been enrolled and verified. Enroll at `/admin/mfa` while in this restricted state: the server stores the TOTP secret encrypted with AES-256-GCM, pending enrollment expires after ten minutes, and enrollment is activated only after a valid six-digit code is confirmed. The setup page provides the manual key and standard `otpauth://` URI for Google Authenticator, Microsoft Authenticator, 1Password, and compatible apps. It also renders the QR code locally in the browser; the TOTP secret is not sent to a third-party QR service.
 
@@ -80,10 +80,10 @@ After enrollment, password sign-in creates only a five-minute, single-use MFA ch
 
 - **Private — MFA-assured session required at all times:** `/api/admin/operations`, `/api/admin/analytics`, and `/api/comments/moderate`.
 - **Public by design:** `GET /api/comments` returns approved comments only; `POST /api/comments` accepts moderated submissions and enforces same-origin, request-size, input, and rate limits. The analytics ingestion endpoint, when deployed, is public by design and accepts only bounded same-origin aggregate events.
-- **Authentication boundary:** `/api/admin/session` exposes session status, same-origin credential sign-in, and sign-out. `/api/admin/mfa` permits authenticated enrollment and confirmation; `/api/admin/mfa/challenge` accepts only the short-lived challenge cookie and a valid TOTP code. Neither endpoint exposes stored TOTP secrets.
+- **Authentication boundary:** `/api/admin/session` exposes session status, same-origin credential sign-in, and sign-out. `/api/admin/mfa` permits restricted enrollment and reauthenticated disable; `/api/admin/mfa/challenge`, `/api/admin/mfa/email`, and `/api/admin/mfa/recovery` accept only the short-lived challenge cookie and a valid TOTP, email OTP, or recovery code. `/api/admin/email-link` issues and consumes origin-bound passwordless links. These routes expose no stored TOTP secrets.
 - New API routes must be explicitly added to the access-policy test allowlist or protected with `authorizeAdminSession`.
 
-Before enabling enrollment, set `ADMIN_TOTP_ENCRYPTION_KEY` in the deployment environment and run the idempotent database initializer against the target `DATABASE_URL`. The initializer adds MFA credential, challenge, and session-assurance schema:
+Before enabling enrollment, set `ADMIN_TOTP_ENCRYPTION_KEY` in the deployment environment and run the idempotent database initializer against the target `DATABASE_URL`. The initializer adds MFA credentials, session assurance, email OTP/magic-link challenges, recovery-code hashes, authentication throttles, and redacted audit-event schema:
 
 ```bash
 npm run db:init-comments
