@@ -64,8 +64,9 @@ test("email OTPs are six digits and peppered hashes are purpose-bound", () => {
 });
 
 test("magic-link tokens are random and stored as one-way hashes", () => {
-  const first = hashMagicLinkToken("token-one");
-  const second = hashMagicLinkToken("token-two");
+  const pepper = "test-magic-link-pepper-".repeat(2);
+  const first = hashMagicLinkToken("token-one", pepper);
+  const second = hashMagicLinkToken("token-two", pepper);
   assert.notEqual(first, second);
   assert.match(first, /^[a-f0-9]{64}$/);
 });
