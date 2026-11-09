@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteComment, getAllComments, setCommentApproved } from "@/lib/db";
+import { deleteComment, getAllComments, getValidAdminSession, setCommentApproved } from "@/lib/db";
 import { listModerationComments, moderateComment } from "@/lib/comment-service";
+import { hashSessionToken, isSameOrigin } from "@/lib/admin-session";
 
-function isAuthorized(request: NextRequest): boolean {
-  const token = process.env.ADMIN_TOKEN;
-  if (!token) return false;
-  const header = request.headers.get("authorization") || "";
-  return header === "Bearer " + token;
+export const runtime = "nodejs";
+
+async function isAuthorized(request: NextRequest): Promise<boolean> {
+  const token = request.cookies.get("admin_session")?.value;
+  return !!token && getValidAdminSession(hashSessionToken(token));
 }
 
 export async function GET(request: NextRequest) {
+  const authorized = await isAuthorized(request);
   const result = await listModerationComments(
-    isAuthorized(request),
+    authorized,
     request.nextUrl.searchParams.get("status"),
     { getAllComments }
   );
@@ -19,8 +21,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const authorized = await isAuthorized(request);
   const body = await request.json().catch(() => null);
-  const result = await moderateComment(body, isAuthorized(request), {
+  const result = await moderateComment(body, authorized, {
     setCommentApproved,
     deleteComment,
   });
