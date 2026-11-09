@@ -307,14 +307,35 @@ export async function savePendingAdminTotpSecret(encryptedSecret: string): Promi
 }
 
 /** Activate enrollment only after the user proves possession of the authenticator. */
-export async function enableAdminTotp(counter: number, recoveryCodeHashes: string[]): Promise<boolean> {
-  if (!Number.isSafeInteger(counter) || counter < 0 || recoveryCodeHashes.length !== 10 || recoveryCodeHashes.some((hash) => !/^[a-f0-9]{64}$/i.test(hash))) return false;
+export async function enableAdminTotp(
+  counter: number,
+  recoveryCodeHashes: string[],
+  expectedEncryptedSecret: string,
+  clientKey: string,
+  accountKey: string,
+): Promise<boolean> {
+  if (!Number.isSafeInteger(counter) || counter < 0 || recoveryCodeHashes.length !== 10
+    || recoveryCodeHashes.some((hash) => !/^[a-f0-9]{64}$/i.test(hash))
+    || !/^[a-f0-9]{64}$/i.test(clientKey) || !/^[a-f0-9]{64}$/i.test(accountKey)) return false;
   const sql = getSql();
   const rows = await sql`
-    UPDATE admin_mfa_credentials
-    SET enabled = true, last_used_counter = ${counter}, recovery_code_hashes = ${recoveryCodeHashes}, pending_expires_at = NULL, updated_at = now()
-    WHERE admin_id = 'primary' AND enabled = false AND pending_attempts < 5 AND pending_expires_at > now()
-    RETURNING admin_id
+    WITH activated AS (
+      UPDATE admin_mfa_credentials
+      SET enabled = true, last_used_counter = ${counter},
+          recovery_code_hashes = ${recoveryCodeHashes},
+          pending_expires_at = NULL, updated_at = now()
+      WHERE admin_id = 'primary' AND enabled = false
+        AND encrypted_secret = ${expectedEncryptedSecret}
+        AND pending_attempts < 5 AND pending_expires_at > now()
+      RETURNING admin_id
+    ),
+    cleared_attempts AS (
+      DELETE FROM admin_auth_attempts
+      WHERE (client_key = ${clientKey} OR client_key = ${accountKey})
+        AND EXISTS (SELECT 1 FROM activated)
+      RETURNING client_key
+    )
+    SELECT admin_id FROM activated
   `;
   return rows.length === 1;
 }
