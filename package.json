@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "22.x"
+    "node": ">=22.6.0 <23"
   },
   "scripts": {
     "dev": "node scripts/dev-with-resume.mjs",
@@ -14,7 +14,8 @@
     "resume:sync": "node scripts/sync-resume.mjs",
     "resume:watch": "node scripts/sync-resume.mjs --watch",
     "db:init-comments": "node scripts/init-comments-db.mjs",
-    "blog:generate": "node scripts/generate-daily-post.mjs"
+    "blog:generate": "node scripts/generate-daily-post.mjs",
+    "test": "node --experimental-strip-types --test"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
