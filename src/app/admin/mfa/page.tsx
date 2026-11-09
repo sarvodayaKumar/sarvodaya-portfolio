@@ -167,7 +167,7 @@ export default function AdminMfaPage() {
 
   async function signOut() {
     await fetch("/api/admin/session", { method: "DELETE" });
-    window.location.assign("/admin/comments");
+    router.push("/admin/comments");
   }
 
   if (mode === "loading") return <main className="mx-auto max-w-xl px-6 py-16"><p role="status" className="text-sm text-muted">Checking authentication…</p></main>;
