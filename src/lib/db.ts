@@ -169,6 +169,20 @@ export async function clearAdminAuthAttempts(clientKey: string): Promise<void> {
   await sql`DELETE FROM admin_auth_attempts WHERE client_key = ${clientKey}`;
 }
 
+/** Read the independent IP and account throttles before accepting an MFA proof. */
+export async function getAdminAuthAttempts(clientKey: string, accountKey: string, windowSeconds: number): Promise<{ clientAttempts: number; accountAttempts: number }> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT client_key, attempts FROM admin_auth_attempts
+    WHERE (client_key = ${clientKey} OR client_key = ${accountKey})
+      AND window_started_at > now() - make_interval(secs => ${windowSeconds})
+  `;
+  return {
+    clientAttempts: Number(rows.find((row) => row.client_key === clientKey)?.attempts ?? 0),
+    accountAttempts: Number(rows.find((row) => row.client_key === accountKey)?.attempts ?? 0),
+  };
+}
+
 export async function revokeAdminSession(tokenHash: string): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM admin_sessions WHERE token_hash = ${tokenHash}`;
