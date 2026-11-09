@@ -32,12 +32,49 @@ const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const CHALLENGE_TTL_SECONDS = 5 * 60;
 const LINK_TTL_SECONDS = 10 * 60;
 
+/** Read at most 1 KiB from the request stream; do not buffer an unbounded body. */
+async function readLimitedBody(request: NextRequest, maxBytes = 1024): Promise<string | null> {
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return null;
+
+  const reader = request.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 1024) return NextResponse.json(GENERIC, { headers: HEADERS });
-  const raw = await request.text();
-  if (raw.length > 1024) return NextResponse.json(GENERIC, { headers: HEADERS });
+  const raw = await readLimitedBody(request);
+  if (raw === null) return NextResponse.json(GENERIC, { headers: HEADERS });
   let body: { email?: unknown } | null = null;
   try { body = JSON.parse(raw) as { email?: unknown }; } catch { /* generic response */ }
 
@@ -47,17 +84,19 @@ export async function POST(request: NextRequest) {
   const accountKey = getAdminMfaAccountKey(configuredEmail ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
 
+  const eligibleAddress = Boolean(configuredEmail && suppliedEmail && safeEqual(suppliedEmail, configuredEmail));
   let attempts = 0;
   let accountAttempts = 0;
   try {
     attempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
-    accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
+    // Only an eligible account-address request may consume the account-wide allowance.
+    if (eligibleAddress) accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
   } catch {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   }
 
   let issued = false;
-  if (attempts <= 5 && accountAttempts <= 5 && configuredEmail && suppliedEmail && safeEqual(suppliedEmail, configuredEmail)) {
+  if (attempts <= 5 && accountAttempts <= 5 && eligibleAddress) {
     try {
       const token = createEmailMagicLinkToken();
       const origin = new URL(request.url).origin;
@@ -83,10 +122,8 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
-  const raw = await request.text();
-  if (raw.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const raw = await readLimitedBody(request);
+  if (raw === null) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   let body: { token?: unknown } | null = null;
   try { body = JSON.parse(raw) as { token?: unknown }; } catch { /* invalid token */ }
   const token = typeof body?.token === "string" ? body.token : "";
