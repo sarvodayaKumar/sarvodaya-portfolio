@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
 function subscribeToHash(callback: () => void) {
@@ -14,30 +14,21 @@ function getServerHashSnapshot(): string | null { return null; }
 export default function AdminEmailConfirmPage() {
   const router = useRouter();
   const hash = useSyncExternalStore(subscribeToHash, getHashSnapshot, getServerHashSnapshot);
-  const tokenRef = useRef("");
   const hashToken = hash ? new URLSearchParams(hash.slice(1)).get("token") ?? "" : "";
-  const token = tokenRef.current || hashToken;
+  const token = hashToken;
   const validToken = token.length >= 40 && token.length <= 128;
   const [status, setStatus] = useState<"verifying" | "invalid" | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (hash === null) return;
-    if (hash) {
-      const value = new URLSearchParams(hash.slice(1)).get("token") ?? "";
-      if (value.length >= 40 && value.length <= 128) tokenRef.current = value;
-      // Remove the one-time credential from browser history immediately.
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, [hash]);
-
   async function continueSignIn() {
-    const oneTimeToken = tokenRef.current || hashToken;
+    const oneTimeToken = hashToken;
     if (!oneTimeToken || oneTimeToken.length < 40 || oneTimeToken.length > 128) {
       setStatus("invalid");
       setError("This sign-in link is invalid, expired, or already used.");
       return;
     }
+    // Remove the one-time token from browser history before sending it.
+    window.history.replaceState(null, "", window.location.pathname);
     setStatus("verifying");
     setError("");
     try {
@@ -48,7 +39,6 @@ export default function AdminEmailConfirmPage() {
         body: JSON.stringify({ token: oneTimeToken }),
       });
       const result = await response.json().catch(() => ({})) as { error?: string };
-      tokenRef.current = "";
       if (!response.ok) throw new Error(result.error ?? "Sign-in link is invalid or expired.");
       router.push("/admin/mfa");
     } catch (cause) {
