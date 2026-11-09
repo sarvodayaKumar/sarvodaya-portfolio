@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 type Comment = {
   id: number;
@@ -52,7 +52,7 @@ export default function AdminCommentsPage() {
     return () => { cancelled = true; };
   }, [loadComments]);
 
-  const handleUnlock = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleUnlock = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     try {
