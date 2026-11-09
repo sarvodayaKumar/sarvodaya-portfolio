@@ -46,6 +46,16 @@ npm run test:e2e
 
 The Playwright configuration starts the production server on `http://127.0.0.1:3000`. axe-core checks WCAG 2.0/2.1 A and AA rules on the homepage and blog index; critical violations fail the suite, while serious violations are attached as test annotations for remediation. CI uploads traces, screenshots, videos, and the HTML report when browser tests fail.
 
+## Admin comment moderation
+
+Admin sign-in exchanges the server-only `ADMIN_TOKEN` for an eight-hour random session. The browser never stores or sends the admin token after sign-in. Session identifiers are stored only as SHA-256 hashes in the `admin_sessions` table and delivered in an HttpOnly, Secure (in production), SameSite=Strict cookie scoped to `/api`. Sign-out revokes the server-side session. Admin sign-in and moderation mutations validate the request Origin.
+
+After deploying the session changes, run the database initializer once to create the `admin_sessions` table:
+
+```bash
+npm run db:init-comments
+```
+
 ## What updates from where
 
 | Content | Source |
@@ -79,8 +89,7 @@ summary: One or two sentences.
 published: true
 ---
 
-Write in Markdown. Files that start with `_` are ignored (see `_template.md`).
-Drafts use `published: false`.
+Write in Markdown. Files that start with `_` are ignored (see `_template.md`). Drafts use `published: false`.
 ```
 
 Locally the blog is at `/blog`. In production it is served on **blog.sarvodaya.dev** from the same Vercel project.
@@ -96,7 +105,6 @@ DNS:
 - `blog` CNAME → `cname.vercel-dns.com`
 
 The homepage Blog block updates on refresh in `npm run dev` or the next production build.
-
 
 ## Vercel deployment workflow
 
