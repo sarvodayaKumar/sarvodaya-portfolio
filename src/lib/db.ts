@@ -98,14 +98,14 @@ export async function createAdminSession(tokenHash: string, expiresAt: Date, mfa
   `;
 }
 
-/** Session assurance is required only after an authenticator has been activated. */
+/** Every protected admin API requires an MFA-assured session, even during initial enrollment. */
 export async function getAdminSessionWithMfaPolicy(tokenHash: string): Promise<boolean> {
   const sql = getSql();
   const rows = await sql`
     SELECT 1 FROM admin_sessions AS sessions
-    WHERE sessions.token_hash = ${tokenHash} AND sessions.expires_at > now()
-      AND (NOT EXISTS (SELECT 1 FROM admin_mfa_credentials WHERE admin_id = 'primary' AND enabled = true)
-        OR sessions.mfa_verified = true)
+    WHERE sessions.token_hash = ${tokenHash}
+      AND sessions.expires_at > now()
+      AND sessions.mfa_verified = true
     LIMIT 1
   `;
   return rows.length > 0;
