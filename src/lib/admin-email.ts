@@ -51,7 +51,7 @@ export async function sendAdminMagicLink(url: string): Promise<boolean> {
         from,
         to: [recipient],
         subject: "Your administrator sign-in link",
-        text: `Use this one-time sign-in link within ten minutes: ${url}\\n\\nIf you did not request this link, ignore this email.`,
+        text: `Use this one-time sign-in link within ten minutes: ${url}\n\nIf you did not request this link, ignore this email.`,
       }),
       signal: AbortSignal.timeout(8_000),
     });
