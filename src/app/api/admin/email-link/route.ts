@@ -19,6 +19,7 @@ import {
   safeEqual,
 } from "@/lib/admin-session";
 import { sendAdminMagicLink } from "@/lib/admin-email";
+import { auditAdminAuthEvent } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   }
 
+  let issued = false;
   if (attempts <= 5 && configuredEmail && suppliedEmail && safeEqual(suppliedEmail, configuredEmail)) {
     try {
       const token = createEmailMagicLinkToken();
@@ -61,12 +63,13 @@ export async function POST(request: NextRequest) {
       );
       const url = new URL("/admin/email-confirm", origin);
       url.hash = "token=" + token;
-      await sendAdminMagicLink(url.toString());
+      issued = await sendAdminMagicLink(url.toString());
     } catch {
       // Keep the response indistinguishable from an ineligible address.
     }
   }
 
+  await auditAdminAuthEvent(request, "email_magic_link", issued);
   return NextResponse.json(GENERIC, {
     status: attempts > 5 ? 429 : 200,
     headers: { ...HEADERS, ...(attempts > 5 ? { "Retry-After": "900" } : {}) },
@@ -93,7 +96,11 @@ export async function PUT(request: NextRequest) {
   } catch {
     valid = false;
   }
-  if (!valid) return NextResponse.json({ error: "Sign-in link is invalid, expired, or already used" }, { status: 401, headers: HEADERS });
+  if (!valid) {
+    await auditAdminAuthEvent(request, "email_magic_link", false);
+    return NextResponse.json({ error: "Sign-in link is invalid, expired, or already used" }, { status: 401, headers: HEADERS });
+  }
+  await auditAdminAuthEvent(request, "email_magic_link", true);
 
   const credential = await getAdminTotpCredential().catch(() => null);
   const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: HEADERS });
