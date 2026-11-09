@@ -51,7 +51,6 @@ await sql`
   )
 `;
 await sql`CREATE INDEX IF NOT EXISTS admin_auth_attempts_window_idx ON admin_auth_attempts (window_started_at)`;
-await sql`ALTER TABLE admin_mfa_credentials ADD COLUMN IF NOT EXISTS pending_attempts INTEGER NOT NULL DEFAULT 0`;
 await sql`
   CREATE TABLE IF NOT EXISTS admin_mfa_credentials (
     admin_id TEXT PRIMARY KEY CHECK (admin_id = 'primary'),
@@ -64,6 +63,7 @@ await sql`
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )
 `;
+await sql`ALTER TABLE admin_mfa_credentials ADD COLUMN IF NOT EXISTS pending_attempts INTEGER NOT NULL DEFAULT 0`;
 await sql`
   CREATE TABLE IF NOT EXISTS site_analytics_daily (
     day DATE NOT NULL,
@@ -85,4 +85,4 @@ await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
 await sql`DELETE FROM admin_mfa_challenges WHERE expires_at <= now()`;
 await sql`DELETE FROM site_analytics_daily WHERE day < CURRENT_DATE - INTERVAL '90 days'`;
 
-console.log("comments, admin_sessions, admin_auth_attempts, admin_mfa_credentials, and site_analytics tables ready.");
+console.log("comments, admin_sessions, admin_auth_attempts, admin_mfa_credentials, admin_mfa_challenges, and site_analytics tables ready.");
