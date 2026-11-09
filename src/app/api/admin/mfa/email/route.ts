@@ -5,6 +5,7 @@ import {
   createAdminSession,
   createAdminEmailOtpChallenge,
   getAdminTotpCredential,
+  getAdminAuthAttempts,
   getValidAdminMfaChallenge,
   recordAdminEmailOtpFailure,
   recordFailedAdminAuthAttempt,
@@ -93,6 +94,14 @@ export async function PUT(request: NextRequest) {
   const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  const throttle = await getAdminAuthAttempts(clientKey, accountKey, 15 * 60);
+  if (throttle.clientAttempts >= 5 || throttle.accountAttempts >= 5) {
+    const response = NextResponse.json({ error: "Email verification temporarily locked. Sign in again later." }, {
+      status: 429, headers: { ...HEADERS, "Retry-After": "900" },
+    });
+    clearChallengeCookie(response);
+    return response;
+  }
   if (!(await consumeAdminEmailOtpChallenge(challengeHash, codeHash))) {
     await auditAdminAuthEvent(request, "email_otp", false);
     const attempts = await recordAdminEmailOtpFailure(challengeHash);
