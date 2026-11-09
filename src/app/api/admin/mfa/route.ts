@@ -6,6 +6,7 @@ import {
   savePendingAdminTotpSecret,
 } from "@/lib/db";
 import { authorizeAdminSession, getAdminAuthClientKey, isSameOrigin, verifyAdminPassword } from "@/lib/admin-session";
+import { auditAdminAuthEvent } from "@/lib/admin-audit";
 import {
   buildTotpUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret,
   generateAdminRecoveryCodes, getTotpCounterForCode, hashMagicLinkToken, hashOneTimeCode,
@@ -48,7 +49,11 @@ export async function POST(request: NextRequest) {
     secret = generateTotpSecret();
     const encrypted = encryptTotpSecret(secret);
     const saved = await savePendingAdminTotpSecret(encrypted);
-    if (!saved) return NextResponse.json({ error: "Unable to start enrollment" }, { status: 409, headers: HEADERS });
+    if (!saved) {
+      await auditAdminAuthEvent(request, "totp_enrollment", false);
+      return NextResponse.json({ error: "Unable to start enrollment" }, { status: 409, headers: HEADERS });
+    }
+    await auditAdminAuthEvent(request, "totp_enrollment", true);
   } catch {
     return NextResponse.json({ error: "MFA is not configured on the server" }, { status: 503, headers: HEADERS });
   }
@@ -77,6 +82,7 @@ export async function PUT(request: NextRequest) {
     const secret = decryptTotpSecret(credential.encryptedSecret);
     const counter = getTotpCounterForCode(secret, body.code);
     if (counter === null) {
+      await auditAdminAuthEvent(request, "totp_enrollment", false);
       const attempts = await recordAdminTotpEnrollmentFailure();
       return NextResponse.json({ error: attempts >= 5 ? "Enrollment locked. Start a new setup." : "Invalid or expired authenticator code" }, { status: 401, headers: HEADERS });
     }
@@ -84,6 +90,7 @@ export async function PUT(request: NextRequest) {
     const recoveryHashes = recoveryCodes.map((recoveryCode) => hashOneTimeCode(recoveryCode.replace(/-/g, ""), "mfa-recovery"));
     const enabled = await enableAdminTotp(counter, recoveryHashes);
     if (!enabled) return NextResponse.json({ error: "Enrollment expired. Start again." }, { status: 409, headers: HEADERS });
+    await auditAdminAuthEvent(request, "totp_enrollment", true);
     return NextResponse.json({
       ok: true,
       message: "Authenticator enabled. Save these recovery codes now; they are shown only once.",
@@ -121,6 +128,7 @@ export async function DELETE(request: NextRequest) {
     status: 429, headers: { ...HEADERS, "Retry-After": "900" },
   });
   if (!(await verifyAdminPassword(body.password, process.env.ADMIN_PASSWORD_HASH))) {
+    await auditAdminAuthEvent(request, "mfa_disable", false);
     return NextResponse.json({ error: "Reauthentication failed" }, { status: 401, headers: HEADERS });
   }
   const credential = await getAdminTotpCredential();
@@ -131,10 +139,14 @@ export async function DELETE(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   }
-  if (counter === null) return NextResponse.json({ error: "Invalid authenticator code" }, { status: 401, headers: HEADERS });
+  if (counter === null) {
+    await auditAdminAuthEvent(request, "mfa_disable", false);
+    return NextResponse.json({ error: "Invalid authenticator code" }, { status: 401, headers: HEADERS });
+  }
   if (!(await disableAdminTotp(counter))) {
     return NextResponse.json({ error: "Authenticator code has already been used. Wait for the next code and retry." }, { status: 409, headers: HEADERS });
   }
+  await auditAdminAuthEvent(request, "mfa_disable", true);
   await clearAdminAuthAttempts(clientKey);
   await revokeAllAdminSessions();
   const response = NextResponse.json({ ok: true, message: "Authenticator disabled. Sign in again and enroll a new factor before using admin APIs." }, { headers: HEADERS });
