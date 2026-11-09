@@ -1,3 +1,4 @@
+import { readLimitedRequestBody } from "@/lib/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import {
   createAdminEmailMagicLink,
@@ -29,48 +30,10 @@ const GENERIC = { ok: true, message: "If the address is eligible, a sign-in link
 const CHALLENGE_TTL_SECONDS = 5 * 60;
 const LINK_TTL_SECONDS = 10 * 60;
 
-/** Read at most 1 KiB from the request stream; do not buffer an unbounded body. */
-async function readLimitedBody(request: NextRequest, maxBytes = 1024): Promise<string | null> {
-  const declaredLength = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return null;
-
-  const reader = request.body?.getReader();
-  if (!reader) return "";
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel();
-        return null;
-      }
-      chunks.push(value);
-    }
-  } catch {
-    return null;
-  } finally {
-    reader.releaseLock();
-  }
-
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
-  const raw = await readLimitedBody(request);
+  const raw = await readLimitedRequestBody(request, 1024);
   if (raw === null) return NextResponse.json(GENERIC, { headers: HEADERS });
   let body: { email?: unknown } | null = null;
   try { body = JSON.parse(raw) as { email?: unknown }; } catch { /* generic response */ }
@@ -119,7 +82,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
-  const raw = await readLimitedBody(request);
+  const raw = await readLimitedRequestBody(request, 1024);
   if (raw === null) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   let body: { token?: unknown } | null = null;
   try { body = JSON.parse(raw) as { token?: unknown }; } catch { /* invalid token */ }
