@@ -5,6 +5,7 @@ import {
   completeAdminMfaRecoveryChallenge,
   createAdminSession,
   getAdminSessionWithMfaPolicy,
+  getAdminAuthAttempts,
   getAdminTotpCredential,
   recordAdminMfaChallengeFailure,
   recordFailedAdminAuthAttempt,
@@ -67,6 +68,14 @@ export async function PUT(request: NextRequest) {
   const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  const throttle = await getAdminAuthAttempts(clientKey, accountKey, 15 * 60);
+  if (throttle.clientAttempts >= 5 || throttle.accountAttempts >= 5) {
+    const response = NextResponse.json({ error: "Recovery verification temporarily locked. Sign in again later." }, {
+      status: 429, headers: { ...HEADERS, "Retry-After": "900" },
+    });
+    clearChallengeCookie(response);
+    return response;
+  }
   if (!(await completeAdminMfaRecoveryChallenge(challengeHash, recoveryHash))) {
     await auditAdminAuthEvent(request, "recovery_code", false);
     const attempts = await recordAdminMfaChallengeFailure(challengeHash);
@@ -123,6 +132,12 @@ export async function POST(request: NextRequest) {
   const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  const throttle = await getAdminAuthAttempts(clientKey, accountKey, 15 * 60);
+  if (throttle.clientAttempts >= 5 || throttle.accountAttempts >= 5) {
+    return NextResponse.json({ error: "Recovery-code management temporarily locked" }, {
+      status: 429, headers: { ...HEADERS, "Retry-After": "900" },
+    });
+  }
   if (counter === null) {
     await auditAdminAuthEvent(request, "recovery_code", false);
     const ipAttempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
