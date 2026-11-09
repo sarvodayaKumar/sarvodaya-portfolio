@@ -1,0 +1,77 @@
+name: Production database migration (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_migration:
+        description: "Type RUN-PRODUCTION-ADMIN-MFA-MIGRATION to authorize the idempotent schema migration"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Apply production admin/auth schema
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Require explicit migration authorization
+        env:
+          CONFIRMATION: ${{ inputs.confirm_migration }}
+        run: |
+          if [ "$CONFIRMATION" != "RUN-PRODUCTION-ADMIN-MFA-MIGRATION" ]; then
+            echo "::error::The exact production migration confirmation phrase is required."
+            exit 1
+          fi
+
+      - name: Check out reviewed main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@65.12.1
+
+      - name: Link the existing Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN is required for the manually approved database migration."
+            exit 1
+          fi
+          vercel link --yes --project sarvodaya-kumar --scope sarvodaya-portfolio --token="$VERCEL_TOKEN"
+
+      - name: Pull production runtime environment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Apply idempotent database schema migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .vercel/.env.production.local
+          node --input-type=module -e '
+            process.loadEnvFile(".vercel/.env.production.local");
+            if (!process.env.DATABASE_URL?.startsWith("postgres")) {
+              throw new Error("Production DATABASE_URL is missing or invalid");
+            }
+            await import("./scripts/init-comments-db.mjs");
+          '
