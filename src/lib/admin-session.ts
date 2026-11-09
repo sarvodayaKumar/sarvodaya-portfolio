@@ -17,6 +17,14 @@ export function hashSessionToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+export async function authorizeAdminSession(
+  token: string | undefined,
+  lookup: (tokenHash: string) => Promise<boolean>
+): Promise<boolean> {
+  if (!token) return false;
+  return lookup(hashSessionToken(token));
+}
+
 export function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return false;
