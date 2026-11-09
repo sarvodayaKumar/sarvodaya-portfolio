@@ -1,8 +1,14 @@
 import { neon } from "@neondatabase/serverless";
 
-// Set by Vercel when a Postgres (Neon) database is provisioned and linked
-// to this project, or by pulling env vars locally with `vercel env pull`.
-const sql = neon(process.env.DATABASE_URL || "");
+// Resolve the connection lazily so importing API routes during a build
+// does not require production database credentials.
+function getSql() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required for comment database operations");
+  }
+  return neon(connectionString);
+}
 
 export type Comment = {
   id: number;
@@ -27,16 +33,18 @@ function mapRow(row: Record<string, unknown>): Comment {
 }
 
 export async function getApprovedComments(postSlug: string): Promise<Comment[]> {
+  const sql = getSql();
   const rows = await sql`
     SELECT id, post_slug, name, message, approved, created_at
     FROM comments
-    WHERE post_slug = ${postSlug} AND approved = true
+    WHERE post_slug = \${postSlug} AND approved = true
     ORDER BY created_at ASC
   `;
   return rows.map(mapRow);
 }
 
 export async function getAllComments(status?: "pending" | "approved"): Promise<Comment[]> {
+  const sql = getSql();
   const rows =
     status === "pending"
       ? await sql`SELECT id, post_slug, name, message, approved, created_at FROM comments WHERE approved = false ORDER BY created_at DESC`
@@ -47,9 +55,10 @@ export async function getAllComments(status?: "pending" | "approved"): Promise<C
 }
 
 export async function countRecentByIp(ip: string, seconds: number): Promise<number> {
+  const sql = getSql();
   const rows = await sql`
     SELECT count(*)::int AS count FROM comments
-    WHERE ip = ${ip} AND created_at > now() - make_interval(secs => ${seconds})
+    WHERE ip = \${ip} AND created_at > now() - make_interval(secs => \${seconds})
   `;
   return Number(rows[0]?.count ?? 0);
 }
@@ -60,18 +69,21 @@ export async function insertComment(input: {
   message: string;
   ip: string;
 }): Promise<Comment> {
+  const sql = getSql();
   const rows = await sql`
     INSERT INTO comments (post_slug, name, message, ip, approved)
-    VALUES (${input.postSlug}, ${input.name}, ${input.message}, ${input.ip}, false)
+    VALUES (\${input.postSlug}, \${input.name}, \${input.message}, \${input.ip}, false)
     RETURNING id, post_slug, name, message, approved, created_at
   `;
   return mapRow(rows[0]);
 }
 
 export async function setCommentApproved(id: number, approved: boolean): Promise<void> {
-  await sql`UPDATE comments SET approved = ${approved} WHERE id = ${id}`;
+  const sql = getSql();
+  await sql`UPDATE comments SET approved = \${approved} WHERE id = \${id}`;
 }
 
 export async function deleteComment(id: number): Promise<void> {
-  await sql`DELETE FROM comments WHERE id = ${id}`;
+  const sql = getSql();
+  await sql`DELETE FROM comments WHERE id = \${id}`;
 }

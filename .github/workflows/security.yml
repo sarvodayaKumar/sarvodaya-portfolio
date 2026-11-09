@@ -1,0 +1,119 @@
+name: Security scanning
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    # 11:00 AM Asia/Kolkata (05:30 UTC), daily.
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL (JavaScript/TypeScript)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
+        with:
+          category: "/language:javascript-typescript"
+
+  gitleaks:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out full Git history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+
+      - name: Scan for leaked secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+          GITLEAKS_ENABLE_SUMMARY: "true"
+
+  dependency-audit:
+    name: npm dependency vulnerability audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      summary: ${{ steps.audit-gate.outputs.summary }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Audit locked dependencies
+        continue-on-error: true
+        run: npm audit --json --audit-level=high > npm-audit.json
+
+      - name: Enforce the high/critical severity gate
+        id: audit-gate
+        run: node scripts/check-npm-audit.mjs npm-audit.json
+
+      - name: Upload machine-readable dependency report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: npm-audit-report
+          path: npm-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  daily-email:
+    name: Daily security email (11 AM IST)
+    if: always() && github.event_name == 'schedule'
+    needs:
+      - codeql
+      - gitleaks
+      - dependency-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out notification script
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Email daily scan results
+        env:
+          OUTLOOK_EMAIL: Sarvodaya.kumar@outlook.com
+          MS_GRAPH_CLIENT_ID: ${{ secrets.MS_GRAPH_CLIENT_ID }}
+          MS_GRAPH_REFRESH_TOKEN: ${{ secrets.MS_GRAPH_REFRESH_TOKEN }}
+          EMAIL_TO: sarvodaya.kumar@outlook.com
+          SCAN_DATE: ${{ github.run_started_at }}
+          CODEQL_RESULT: ${{ needs.codeql.result }}
+          GITLEAKS_RESULT: ${{ needs.gitleaks.result }}
+          DEPENDENCY_AUDIT_RESULT: ${{ needs.dependency-audit.result }}
+          DEPENDENCY_SUMMARY: ${{ needs.dependency-audit.outputs.summary }}
+        run: python3 scripts/send-security-email.py
