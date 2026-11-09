@@ -44,6 +44,17 @@ await sql`
 `;
 await sql`CREATE INDEX IF NOT EXISTS admin_mfa_challenges_expires_idx ON admin_mfa_challenges (expires_at)`;
 await sql`
+  CREATE TABLE IF NOT EXISTS admin_email_otp_challenges (
+    challenge_hash CHAR(64) PRIMARY KEY REFERENCES admin_mfa_challenges(token_hash) ON DELETE CASCADE,
+    code_hash CHAR(64) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0 AND attempts <= 5),
+    sends INTEGER NOT NULL DEFAULT 1 CHECK (sends >= 1 AND sends <= 3),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )
+`;
+await sql`CREATE INDEX IF NOT EXISTS admin_email_otp_challenges_expires_idx ON admin_email_otp_challenges (expires_at)`;
+await sql`
   CREATE TABLE IF NOT EXISTS admin_auth_attempts (
     client_key CHAR(64) PRIMARY KEY,
     window_started_at TIMESTAMPTZ NOT NULL,
@@ -85,4 +96,4 @@ await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
 await sql`DELETE FROM admin_mfa_challenges WHERE expires_at <= now()`;
 await sql`DELETE FROM site_analytics_daily WHERE day < CURRENT_DATE - INTERVAL '90 days'`;
 
-console.log("comments, admin_sessions, admin_auth_attempts, admin_mfa_credentials, admin_mfa_challenges, and site_analytics tables ready.");
+console.log("comments, admin_sessions, admin_auth_attempts, admin_mfa_credentials, admin_mfa_challenges, admin_email_otp_challenges, and site_analytics tables ready.");
