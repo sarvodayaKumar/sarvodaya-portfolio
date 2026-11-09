@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  enableAdminTotp, getAdminTotpCredential, getValidAdminSession,
+  enableAdminTotp, getAdminTotpCredential, getValidAdminMfaChallenge, getValidAdminSession,
   savePendingAdminTotpSecret,
 } from "@/lib/db";
-import { authorizeAdminSession, createSessionToken, hashSessionToken, isSameOrigin } from "@/lib/admin-session";
+import { authorizeAdminSession, isSameOrigin } from "@/lib/admin-session";
 import {
   buildTotpUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret,
-  getTotpCounterForCode,
+  getTotpCounterForCode, hashMagicLinkToken,
 } from "@/lib/admin-mfa";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const HEADERS = { "Cache-Control": "no-store", Vary: "Cookie" };
 const SESSION_COOKIE = "admin_session";
-const SESSION_TTL_SECONDS = 8 * 60 * 60;
+const CHALLENGE_COOKIE = "admin_mfa_challenge";
 
 async function signedIn(request: NextRequest) {
   return authorizeAdminSession(request.cookies.get(SESSION_COOKIE)?.value, getValidAdminSession);
