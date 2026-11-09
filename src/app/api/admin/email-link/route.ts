@@ -6,6 +6,7 @@ import {
   createAdminSession,
   getAdminTotpCredential,
   recordFailedAdminAuthAttempt,
+  revokeAdminSession,
 } from "@/lib/db";
 import {
   createEmailMagicLinkToken,
@@ -107,7 +108,17 @@ export async function PUT(request: NextRequest) {
   await auditAdminAuthEvent(request, "email_magic_link", true);
 
   const credential = await getAdminTotpCredential().catch(() => null);
+  const previousSession = request.cookies.get("admin_session")?.value;
+  if (previousSession) await revokeAdminSession(hashSessionToken(previousSession));
   const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: HEADERS });
+  response.cookies.set("admin_session", "", {
+    httpOnly: true, secure: process.env.NODE_ENV === "production",
+    sameSite: "strict", path: "/api", maxAge: 0,
+  });
+  response.cookies.set("admin_mfa_challenge", "", {
+    httpOnly: true, secure: process.env.NODE_ENV === "production",
+    sameSite: "strict", path: "/api/admin/mfa", maxAge: 0,
+  });
   if (credential?.enabled) {
     const challengeToken = createEmailMagicLinkToken();
     await createAdminMfaChallenge(
