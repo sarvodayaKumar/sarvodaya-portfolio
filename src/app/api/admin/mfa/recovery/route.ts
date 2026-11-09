@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auditAdminAuthEvent } from "@/lib/admin-audit";
 import {
   clearAdminAuthAttempts,
   completeAdminMfaRecoveryChallenge,
