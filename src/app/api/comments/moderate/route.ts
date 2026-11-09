@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteComment, getAllComments, getValidAdminSession, setCommentApproved } from "@/lib/db";
+import { deleteComment, getAllComments, getAdminSessionWithMfaPolicy, setCommentApproved } from "@/lib/db";
 import { listModerationComments, moderateComment } from "@/lib/comment-service";
 import { authorizeAdminSession, isSameOrigin } from "@/lib/admin-session";
 
@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 async function isAuthorized(request: NextRequest): Promise<boolean> {
   return authorizeAdminSession(
     request.cookies.get("admin_session")?.value,
-    getValidAdminSession
+    getAdminSessionWithMfaPolicy
   );
 }
 
