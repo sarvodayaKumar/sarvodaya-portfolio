@@ -64,10 +64,23 @@ export async function POST(request: NextRequest) {
   const credentials = getAdminCredentialsFromBody(body);
   const username = process.env.ADMIN_USERNAME;
   const passwordHash = process.env.ADMIN_PASSWORD_HASH;
-  const pepper = process.env.ADMIN_AUTH_PEPPER;
-  const clientKey = getAdminAuthClientKey(request, pepper);
+  const clientKey = getAdminAuthClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey) {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: RESPONSE_HEADERS });
+  }
+
+  // Increment before the expensive scrypt operation so the persistent limit also
+  // protects the password verifier from repeated CPU/memory-exhaustion attempts.
+  let attempts: number;
+  try {
+    attempts = await recordFailedAdminAuthAttempt(clientKey, AUTH_WINDOW_SECONDS);
+  } catch {
+    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: RESPONSE_HEADERS });
+  }
+  if (attempts > MAX_FAILED_AUTH_ATTEMPTS) {
+    return NextResponse.json(AUTH_FAILURE, {
+      status: 429, headers: { ...RESPONSE_HEADERS, "Retry-After": String(AUTH_WINDOW_SECONDS) },
+    });
   }
 
   let valid = false;
@@ -76,18 +89,7 @@ export async function POST(request: NextRequest) {
     const passwordValid = await verifyAdminPassword(credentials.password, passwordHash);
     valid = usernameValid && passwordValid;
   }
-
   if (!valid) {
-    try {
-      const attempts = await recordFailedAdminAuthAttempt(clientKey, AUTH_WINDOW_SECONDS);
-      if (attempts > MAX_FAILED_AUTH_ATTEMPTS) {
-        return NextResponse.json(AUTH_FAILURE, {
-          status: 429, headers: { ...RESPONSE_HEADERS, "Retry-After": String(AUTH_WINDOW_SECONDS) },
-        });
-      }
-    } catch {
-      return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: RESPONSE_HEADERS });
-    }
     return NextResponse.json(AUTH_FAILURE, { status: 401, headers: RESPONSE_HEADERS });
   }
 
