@@ -6,7 +6,7 @@ import {
 import { authorizeAdminSession, isSameOrigin } from "@/lib/admin-session";
 import {
   buildTotpUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret,
-  getTotpCounterForCode, hashMagicLinkToken,
+  generateAdminRecoveryCodes, getTotpCounterForCode, hashMagicLinkToken, hashOneTimeCode,
 } from "@/lib/admin-mfa";
 
 export const runtime = "nodejs";
@@ -78,9 +78,15 @@ export async function PUT(request: NextRequest) {
       const attempts = await recordAdminTotpEnrollmentFailure();
       return NextResponse.json({ error: attempts >= 5 ? "Enrollment locked. Start a new setup." : "Invalid or expired authenticator code" }, { status: 401, headers: HEADERS });
     }
-    const enabled = await enableAdminTotp(counter);
+    const recoveryCodes = generateAdminRecoveryCodes(10);
+    const recoveryHashes = recoveryCodes.map((recoveryCode) => hashOneTimeCode(recoveryCode.replace(/-/g, ""), "mfa-recovery"));
+    const enabled = await enableAdminTotp(counter, recoveryHashes);
     if (!enabled) return NextResponse.json({ error: "Enrollment expired. Start again." }, { status: 409, headers: HEADERS });
-    return NextResponse.json({ ok: true, message: "Authenticator enabled. Sign in again to verify MFA." }, { headers: HEADERS });
+    return NextResponse.json({
+      ok: true,
+      message: "Authenticator enabled. Save these recovery codes now; they are shown only once.",
+      recoveryCodes,
+    }, { headers: HEADERS });
   } catch {
     return NextResponse.json({ error: "Unable to verify authenticator enrollment" }, { status: 503, headers: HEADERS });
   }
