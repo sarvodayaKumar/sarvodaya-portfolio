@@ -87,7 +87,7 @@ export default function AdminMfaPage() {
           });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (mode === "challenge" && response.status === 401) {
+        if (mode === "challenge" && (response.status === 401 || response.status === 429)) {
           setError(data.error ?? "Challenge expired. Sign in again.");
           await refresh();
           return;
