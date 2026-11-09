@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  clearAdminAuthAttempts, completeAdminMfaChallenge, createAdminSession, getAdminTotpCredential,
+  clearAdminAuthAttempts, completeAdminMfaChallenge, createAdminSession, getAdminAuthAttempts, getAdminTotpCredential,
   getValidAdminMfaChallenge, recordAdminMfaChallengeFailure, recordFailedAdminAuthAttempt,
   revokeAdminSession,
 } from "@/lib/db";
@@ -35,6 +35,12 @@ export async function POST(request: NextRequest) {
   const clientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
   const accountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
   if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  const throttle = await getAdminAuthAttempts(clientKey, accountKey, 15 * 60);
+  if (throttle.clientAttempts >= 5 || throttle.accountAttempts >= 5) {
+    return NextResponse.json({ error: "MFA verification temporarily locked. Sign in again later." }, {
+      status: 429, headers: { ...HEADERS, "Retry-After": "900" },
+    });
+  }
   const rawBody = await request.text();
   if (rawBody.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
   const body = await (async () => { try { return JSON.parse(rawBody) as { code?: unknown }; } catch { return null; } })();
