@@ -107,10 +107,9 @@ jobs:
 
       - name: Email daily scan results
         env:
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_SERVER: ${{ vars.SMTP_SERVER }}
-          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          OUTLOOK_EMAIL: Sarvodaya.kumar@outlook.com
+          MS_GRAPH_CLIENT_ID: ${{ secrets.MS_GRAPH_CLIENT_ID }}
+          MS_GRAPH_REFRESH_TOKEN: ${{ secrets.MS_GRAPH_REFRESH_TOKEN }}
           EMAIL_TO: sarvodaya.kumar@outlook.com
           SCAN_DATE: ${{ github.run_started_at }}
           CODEQL_RESULT: ${{ needs.codeql.result }}
