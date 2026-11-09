@@ -61,7 +61,11 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: HEADERS });
   if (!(await signedIn(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: HEADERS });
-  const body = await request.json().catch(() => null) as { code?: unknown } | null;
+  const bodyLength = Number(request.headers.get("content-length") ?? 0);
+  if (bodyLength > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const rawBody = await request.text();
+  if (rawBody.length > 1024) return NextResponse.json({ error: "Invalid request" }, { status: 413, headers: HEADERS });
+  const body = await (async () => { try { return JSON.parse(rawBody) as { code?: unknown }; } catch { return null; } })();
   if (!body || typeof body.code !== "string" || !/^\d{6}$/.test(body.code)) {
     return NextResponse.json({ error: "Enter a valid six-digit code" }, { status: 400, headers: HEADERS });
   }
