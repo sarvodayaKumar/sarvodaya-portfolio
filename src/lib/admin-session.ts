@@ -12,7 +12,7 @@ export function safeEqual(candidate: string, expected: string): boolean {
 
 /** Verify bcrypt hashes (cost 12); reject passwords exceeding bcrypt's 72-byte limit. */
 export async function verifyAdminPassword(password: string, encoded: string | undefined): Promise<boolean> {
-  if (!encoded || !/^\\$2[aby]\\$12\\$[./A-Za-z0-9]{53}$/.test(encoded) || !password || password.length > 1024) return false;
+  if (!encoded || !/^\$2[aby]\$12\$[./A-Za-z0-9]{53}$/.test(encoded) || !password || password.length > 1024) return false;
   if (bcrypt.truncates(password)) return false;
   try {
     return await bcrypt.compare(password, encoded);
