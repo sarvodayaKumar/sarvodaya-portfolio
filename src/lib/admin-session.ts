@@ -44,6 +44,20 @@ export function getAdminAuthAccountKey(identity: string, pepper: string | undefi
   return createHmac("sha256", pepper).update("admin-account:" + identity.trim().toLowerCase()).digest("hex");
 }
 
+/** Independent MFA throttle buckets so a successful password check cannot reset factor failures. */
+export function getAdminMfaClientKey(request: Request, pepper: string | undefined): string | null {
+  if (!pepper || pepper.length < 32) return null;
+  const rawIp = request.headers.get("x-vercel-forwarded-for") ?? request.headers.get("x-real-ip");
+  const ip = rawIp?.split(",")[0]?.trim();
+  if (!ip || isIP(ip) === 0) return null;
+  return createHmac("sha256", pepper).update("admin-mfa-client:" + ip).digest("hex");
+}
+
+export function getAdminMfaAccountKey(identity: string, pepper: string | undefined): string | null {
+  if (!pepper || pepper.length < 32 || !identity.trim()) return null;
+  return createHmac("sha256", pepper).update("admin-mfa-account:" + identity.trim().toLowerCase()).digest("hex");
+}
+
 export function createSessionToken(): string {
   return randomBytes(SESSION_BYTES).toString("base64url");
 }
