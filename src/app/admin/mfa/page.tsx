@@ -35,8 +35,7 @@ export default function AdminMfaPage() {
       }
       setMode("enrollment");
       setEnabled(Boolean(data.enabled));
-      const session = await fetch("/api/admin/session", { cache: "no-store" });
-      setMfaVerified(session.ok);
+      setMfaVerified(Boolean(data.canManage));
       return;
     }
     const challenge = await fetch("/api/admin/mfa/challenge", { cache: "no-store" });
