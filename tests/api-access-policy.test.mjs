@@ -35,7 +35,7 @@ test("every API route is explicitly classified as private or public", async () =
     if (file === "src/app/api/admin/mfa/challenge/route.ts") {
       assert.match(source, /getValidAdminMfaChallenge/);
       assert.match(source, /isSameOrigin/);
-      assert.match(source, /consumeAdminTotpCounter/);
+      assert.match(source, /completeAdminMfaChallenge/);
       continue;
     }
     if (file === "src/app/api/admin/session/route.ts") {
