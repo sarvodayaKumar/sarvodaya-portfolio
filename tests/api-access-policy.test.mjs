@@ -75,5 +75,6 @@ test("every API route is explicitly classified as private or public", async () =
     }
     assert.ok(!publicRoutes.has(file), `${file} must not be accidentally public`);
     assert.match(source, /authorizeAdminSession/, `${file} must validate the administrator session`);
+    assert.match(source, /getAdminSessionWithMfaPolicy/, `${file} must independently enforce MFA assurance`);
   }
 });
