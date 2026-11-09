@@ -5,7 +5,7 @@ import {
   recordFailedAdminAuthAttempt, recordAdminTotpEnrollmentFailure, revokeAllAdminSessions,
   savePendingAdminTotpSecret,
 } from "@/lib/db";
-import { authorizeAdminSession, getAdminAuthAccountKey, getAdminAuthClientKey, isSameOrigin, verifyAdminPassword } from "@/lib/admin-session";
+import { authorizeAdminSession, getAdminAuthAccountKey, getAdminAuthClientKey, getAdminMfaAccountKey, getAdminMfaClientKey, isSameOrigin, verifyAdminPassword } from "@/lib/admin-session";
 import { auditAdminAuthEvent } from "@/lib/admin-audit";
 import {
   buildTotpUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret,
@@ -78,18 +78,29 @@ export async function PUT(request: NextRequest) {
   }
   const credential = await getAdminTotpCredential();
   if (!credential || credential.enabled) return NextResponse.json({ error: "No pending authenticator enrollment" }, { status: 409, headers: HEADERS });
+  const mfaClientKey = getAdminMfaClientKey(request, process.env.ADMIN_AUTH_PEPPER);
+  const mfaAccountKey = getAdminMfaAccountKey(process.env.ADMIN_USERNAME ?? "primary", process.env.ADMIN_AUTH_PEPPER);
+  if (!mfaClientKey || !mfaAccountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   try {
     const secret = decryptTotpSecret(credential.encryptedSecret);
     const counter = getTotpCounterForCode(secret, body.code);
     if (counter === null) {
       await auditAdminAuthEvent(request, "totp_enrollment", false);
       const attempts = await recordAdminTotpEnrollmentFailure();
-      return NextResponse.json({ error: attempts >= 5 ? "Enrollment locked. Start a new setup." : "Invalid or expired authenticator code" }, { status: 401, headers: HEADERS });
+      const ipAttempts = await recordFailedAdminAuthAttempt(mfaClientKey, 15 * 60);
+      const accountAttempts = await recordFailedAdminAuthAttempt(mfaAccountKey, 15 * 60);
+      const locked = attempts >= 5 || ipAttempts > 5 || accountAttempts > 5;
+      return NextResponse.json({ error: locked ? "Authenticator enrollment temporarily locked. Sign in again later." : "Invalid or expired authenticator code" }, {
+        status: locked ? 429 : 401,
+        headers: { ...HEADERS, ...(locked ? { "Retry-After": "900" } : {}) },
+      });
     }
     const recoveryCodes = generateAdminRecoveryCodes(10);
     const recoveryHashes = recoveryCodes.map((recoveryCode) => hashOneTimeCode(recoveryCode.replace(/-/g, ""), "mfa-recovery"));
     const enabled = await enableAdminTotp(counter, recoveryHashes);
     if (!enabled) return NextResponse.json({ error: "Enrollment expired. Start again." }, { status: 409, headers: HEADERS });
+    await clearAdminAuthAttempts(mfaClientKey);
+    await clearAdminAuthAttempts(mfaAccountKey);
     await auditAdminAuthEvent(request, "totp_enrollment", true);
     return NextResponse.json({
       ok: true,
