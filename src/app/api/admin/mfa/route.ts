@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   enableAdminTotp, getAdminTotpCredential, getValidAdminMfaChallenge, getValidAdminSession,
-  savePendingAdminTotpSecret,
+  recordAdminTotpEnrollmentFailure, savePendingAdminTotpSecret,
 } from "@/lib/db";
 import { authorizeAdminSession, isSameOrigin } from "@/lib/admin-session";
 import {
@@ -74,7 +74,10 @@ export async function PUT(request: NextRequest) {
   try {
     const secret = decryptTotpSecret(credential.encryptedSecret);
     const counter = getTotpCounterForCode(secret, body.code);
-    if (counter === null) return NextResponse.json({ error: "Invalid or expired authenticator code" }, { status: 401, headers: HEADERS });
+    if (counter === null) {
+      const attempts = await recordAdminTotpEnrollmentFailure();
+      return NextResponse.json({ error: attempts >= 5 ? "Enrollment locked. Start a new setup." : "Invalid or expired authenticator code" }, { status: 401, headers: HEADERS });
+    }
     const enabled = await enableAdminTotp(counter);
     if (!enabled) return NextResponse.json({ error: "Enrollment expired. Start again." }, { status: 409, headers: HEADERS });
     return NextResponse.json({ ok: true, message: "Authenticator enabled. Sign in again to verify MFA." }, { headers: HEADERS });
