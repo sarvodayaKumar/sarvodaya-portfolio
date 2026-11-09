@@ -7,6 +7,7 @@ const productionHosts = (process.env.DAST_PRODUCTION_HOSTS ?? '').split(',').map
 function fail(message) { console.error('DAST target rejected: ' + message); process.exit(1); }
 
 if (!rawTarget) fail('provide an explicit staging URL.');
+if (/[\r\n]/.test(rawTarget)) fail('newlines are not permitted in the target.');
 if (allowedHosts.length === 0) fail('configure the DAST_ALLOWED_HOSTS repository variable.');
 let target;
 try { target = new URL(rawTarget); } catch { fail('the target must be a valid absolute URL.'); }
