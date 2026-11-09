@@ -151,7 +151,7 @@ GitHub Actions is the source of truth for pull-request validation. CI does not c
 - npm high/critical vulnerability audit
 - Lighthouse performance and accessibility budgets
 
-Production deployment remains a separate release operation and must only happen after review, merge, and production database migration. No CI workflow in this PR deploys to Vercel. Vercel's daily deployment quota therefore cannot fail a GitHub CI check.
+Production deployment remains a separate release operation and must only happen after review, merge, and production database migration. Vercel Git auto-deployment is disabled for `main` in `vercel.json`; feature branches can still create Preview deployments. After the migration succeeds, release the reviewed `main` revision manually through Vercel. No CI workflow in this PR deploys to Vercel. Vercel's daily deployment quota therefore cannot fail a GitHub CI check.
 
 The Vercel project stores runtime-only admin credentials as sensitive server environment variables. GitHub Actions does not need `VERCEL_TOKEN`, production database credentials, or admin secrets for PR validation. Do not add runtime credentials to GitHub Actions unless a separately reviewed workflow genuinely needs them.
 
