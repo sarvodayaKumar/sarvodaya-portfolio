@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin-mfa";
 import {
   createSessionToken,
+  getAdminAuthAccountKey,
   getAdminAuthClientKey,
   hashSessionToken,
   isSameOrigin,
@@ -42,17 +43,20 @@ export async function POST(request: NextRequest) {
   const configuredEmail = process.env.ADMIN_USERNAME?.trim().toLowerCase();
   const suppliedEmail = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const clientKey = getAdminAuthClientKey(request, process.env.ADMIN_AUTH_PEPPER);
-  if (!clientKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  const accountKey = getAdminAuthAccountKey(configuredEmail ?? "primary", process.env.ADMIN_AUTH_PEPPER);
+  if (!clientKey || !accountKey) return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
 
   let attempts = 0;
+  let accountAttempts = 0;
   try {
     attempts = await recordFailedAdminAuthAttempt(clientKey, 15 * 60);
+    accountAttempts = await recordFailedAdminAuthAttempt(accountKey, 15 * 60);
   } catch {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
   }
 
   let issued = false;
-  if (attempts <= 5 && configuredEmail && suppliedEmail && safeEqual(suppliedEmail, configuredEmail)) {
+  if (attempts <= 5 && accountAttempts <= 5 && configuredEmail && suppliedEmail && safeEqual(suppliedEmail, configuredEmail)) {
     try {
       const token = createEmailMagicLinkToken();
       const origin = new URL(request.url).origin;
@@ -71,7 +75,7 @@ export async function POST(request: NextRequest) {
 
   await auditAdminAuthEvent(request, "email_magic_link", issued);
   return NextResponse.json(GENERIC, {
-    status: attempts > 5 ? 429 : 200,
+    status: attempts > 5 || accountAttempts > 5 ? 429 : 200,
     headers: { ...HEADERS, ...(attempts > 5 ? { "Retry-After": "900" } : {}) },
   });
 }
