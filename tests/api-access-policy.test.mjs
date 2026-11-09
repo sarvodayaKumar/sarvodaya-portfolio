@@ -21,6 +21,7 @@ test("every API route is explicitly classified as private or public", async () =
     "src/app/api/admin/session/route.ts",
     "src/app/api/admin/mfa/challenge/route.ts",
     "src/app/api/admin/mfa/email/route.ts",
+    "src/app/api/admin/email-link/route.ts",
     "src/app/api/analytics/route.ts",
   ]);
   assert.ok(files.length > 0);
@@ -44,6 +45,13 @@ test("every API route is explicitly classified as private or public", async () =
       assert.match(source, /isSameOrigin/);
       assert.match(source, /consumeAdminEmailOtpChallenge/);
       assert.match(source, /createAdminSession/);
+      continue;
+    }
+    if (file === "src/app/api/admin/email-link/route.ts") {
+      assert.match(source, /isSameOrigin/);
+      assert.match(source, /consumeAdminEmailMagicLink/);
+      assert.match(source, /hashMagicLinkToken/);
+      assert.match(source, /createAdminMfaChallenge/);
       continue;
     }
     if (file === "src/app/api/admin/session/route.ts") {
