@@ -19,6 +19,7 @@ import {
   getAdminCredentialsFromBody,
 } from "@/lib/admin-session";
 import { createEmailMagicLinkToken, hashMagicLinkToken } from "@/lib/admin-mfa";
+import { auditAdminAuthEvent } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: RESPONSE_HEADERS });
   }
 
-  // Increment before the expensive scrypt operation so the persistent limit also
+  // Increment before the expensive bcrypt operation so the persistent limit also
   // protects the password verifier from repeated CPU/memory-exhaustion attempts.
   let attempts: number;
   try {
@@ -95,10 +96,12 @@ export async function POST(request: NextRequest) {
     valid = usernameValid && passwordValid;
   }
   if (!valid) {
+    await auditAdminAuthEvent(request, "password_sign_in", false);
     return NextResponse.json(AUTH_FAILURE, { status: 401, headers: RESPONSE_HEADERS });
   }
 
   try {
+    await auditAdminAuthEvent(request, "password_sign_in", true);
     await clearAdminAuthAttempts(clientKey);
     const credential = await getAdminTotpCredential();
     if (credential?.enabled) {
@@ -136,6 +139,7 @@ export async function DELETE(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Unable to sign out" }, { status: 503, headers: RESPONSE_HEADERS });
   }
+  await auditAdminAuthEvent(request, "session_logout", true);
   const response = NextResponse.json({ ok: true }, { headers: RESPONSE_HEADERS });
   response.cookies.set(COOKIE_NAME, "", {
     httpOnly: true, secure: process.env.NODE_ENV === "production",
