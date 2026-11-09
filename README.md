@@ -4,7 +4,7 @@ Personal site for [Sarvodaya Kumar](https://github.com/sarvodayaKumar), Senior S
 
 ## Run locally
 
-Requires **Node.js 22** (pinned in `.nvmrc` so Vercel and local match).
+Requires **Node.js 22.6 or newer within Node 22** (pinned in `.nvmrc`).
 
 ```bash
 nvm use
@@ -15,6 +15,16 @@ npm run dev
 `npm run dev` starts Next.js **and** watches the resume PDF. Replace `/mnt/d/Download/sarvodayaKumar.pdf` and the Employment section regenerates; open source is left intact.
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Tests
+
+Run the built-in Node.js test suite (no additional test framework dependency is required):
+
+```bash
+npm test
+```
+
+The tests exercise comment API service behavior with an in-memory data store, including public comment listing/creation, validation, cooldown and daily limits, moderation authorization/actions, and database-error propagation.
 
 ## What updates from where
 
