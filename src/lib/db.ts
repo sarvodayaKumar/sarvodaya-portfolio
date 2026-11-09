@@ -92,10 +92,17 @@ export async function deleteComment(id: number): Promise<void> {
 export async function createAdminSession(tokenHash: string, expiresAt: Date, mfaVerified = false): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
-  await sql`
+  const rows = await sql`
     INSERT INTO admin_sessions (token_hash, expires_at, mfa_verified)
-    VALUES (${tokenHash}, ${expiresAt.toISOString()}, ${mfaVerified})
+    SELECT ${tokenHash}, ${expiresAt.toISOString()}, ${mfaVerified}
+    WHERE ${mfaVerified} = false OR EXISTS (
+      SELECT 1 FROM admin_mfa_credentials
+      WHERE admin_id = 'primary' AND enabled = true
+      FOR UPDATE
+    )
+    RETURNING token_hash
   `;
+  if (rows.length !== 1) throw new Error("MFA assurance was revoked before session creation");
 }
 
 /** Every protected admin API requires an MFA-assured session, even during initial enrollment. */
@@ -485,10 +492,24 @@ export async function completeAdminMfaRecoveryChallenge(challengeHash: string, r
 export async function disableAdminTotp(): Promise<boolean> {
   const sql = getSql();
   const rows = await sql`
-    UPDATE admin_mfa_credentials
-    SET enabled = false, recovery_code_hashes = ARRAY[]::TEXT[], pending_expires_at = NULL, updated_at = now()
-    WHERE admin_id = 'primary' AND enabled = true
-    RETURNING admin_id
+    WITH disabled AS (
+      UPDATE admin_mfa_credentials
+      SET enabled = false, recovery_code_hashes = ARRAY[]::TEXT[],
+          pending_expires_at = NULL, pending_attempts = 0, updated_at = now()
+      WHERE admin_id = 'primary' AND enabled = true
+      RETURNING admin_id
+    ),
+    revoked_sessions AS (
+      DELETE FROM admin_sessions
+      WHERE EXISTS (SELECT 1 FROM disabled)
+      RETURNING token_hash
+    ),
+    revoked_challenges AS (
+      DELETE FROM admin_mfa_challenges
+      WHERE EXISTS (SELECT 1 FROM disabled)
+      RETURNING token_hash
+    )
+    SELECT admin_id FROM disabled
   `;
   return rows.length === 1;
 }
