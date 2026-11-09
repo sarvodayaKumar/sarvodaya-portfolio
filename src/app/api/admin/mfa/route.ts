@@ -1,37 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  createAdminMfaChallenge, createAdminSession, consumeAdminMfaChallenge,
-  consumeAdminTotpCounter, enableAdminTotp, getAdminTotpCredential,
-  getValidAdminMfaChallenge, getValidAdminSession, recordAdminMfaChallengeFailure,
+  enableAdminTotp, getAdminTotpCredential, getValidAdminSession,
   savePendingAdminTotpSecret,
 } from "@/lib/db";
 import { authorizeAdminSession, createSessionToken, hashSessionToken, isSameOrigin } from "@/lib/admin-session";
 import {
   buildTotpUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret,
-  getTotpCounterForCode, hashMagicLinkToken,
+  getTotpCounterForCode,
 } from "@/lib/admin-mfa";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const HEADERS = { "Cache-Control": "no-store", Vary: "Cookie" };
 const SESSION_COOKIE = "admin_session";
-const CHALLENGE_COOKIE = "admin_mfa_challenge";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
-const CHALLENGE_TTL_SECONDS = 5 * 60;
-
-function setSessionCookie(response: NextResponse, token: string) {
-  response.cookies.set(SESSION_COOKIE, token, {
-    httpOnly: true, secure: process.env.NODE_ENV === "production",
-    sameSite: "strict", path: "/api", maxAge: SESSION_TTL_SECONDS,
-  });
-}
-
-function clearChallengeCookie(response: NextResponse) {
-  response.cookies.set(CHALLENGE_COOKIE, "", {
-    httpOnly: true, secure: process.env.NODE_ENV === "production",
-    sameSite: "strict", path: "/api/admin/mfa", maxAge: 0,
-  });
-}
 
 async function signedIn(request: NextRequest) {
   return authorizeAdminSession(request.cookies.get(SESSION_COOKIE)?.value, getValidAdminSession);
