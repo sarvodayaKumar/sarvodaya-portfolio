@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import AdminAnalyticsPanel from "@/components/admin/AdminAnalyticsPanel";
 
 type WorkflowRun = {
   id: number;
@@ -121,14 +122,17 @@ export default function AdminOperationsPage() {
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">Site administration</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">Operations overview</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted">A read-only view of recent CI/CD activity. More operations modules will be added in later phases.</p>
+          <p className="mt-2 max-w-2xl text-sm text-muted">A read-only view of site analytics and recent CI/CD activity.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <a href="#analytics" className="rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-card">Analytics</a>
           <Link href="/admin/comments" className="rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-card">Comments moderation</Link>
           <button onClick={refresh} disabled={loading} className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50">{loading ? "Refreshing…" : "Refresh"}</button>
           <button onClick={signOut} className="rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-card">Sign out</button>
         </div>
       </div>
+
+      <AdminAnalyticsPanel />
 
       {error && <p className="mt-6 rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-600" role="alert">{error}</p>}
 

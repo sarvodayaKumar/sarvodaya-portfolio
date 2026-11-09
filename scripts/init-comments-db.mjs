@@ -41,6 +41,24 @@ await sql`
   )
 `;
 await sql`CREATE INDEX IF NOT EXISTS admin_auth_attempts_window_idx ON admin_auth_attempts (window_started_at)`;
+await sql`
+  CREATE TABLE IF NOT EXISTS site_analytics_daily (
+    day DATE NOT NULL,
+    path TEXT NOT NULL,
+    referrer_host TEXT NOT NULL,
+    page_views INTEGER NOT NULL DEFAULT 0 CHECK (page_views >= 0),
+    PRIMARY KEY (day, path, referrer_host)
+  )
+`;
+await sql`CREATE INDEX IF NOT EXISTS site_analytics_daily_day_idx ON site_analytics_daily (day DESC)`;
+await sql`
+  CREATE TABLE IF NOT EXISTS site_analytics_ingest_limits (
+    bucket_key TEXT PRIMARY KEY,
+    window_started_at TIMESTAMPTZ NOT NULL,
+    requests INTEGER NOT NULL DEFAULT 0
+  )
+`;
 await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
+await sql`DELETE FROM site_analytics_daily WHERE day < CURRENT_DATE - INTERVAL '90 days'`;
 
-console.log("comments, admin_sessions, and admin_auth_attempts tables ready.");
+console.log("comments, admin_sessions, admin_auth_attempts, and site_analytics tables ready.");
