@@ -90,6 +90,7 @@ export async function deleteComment(id: number): Promise<void> {
 
 export async function createAdminSession(tokenHash: string, expiresAt: Date): Promise<void> {
   const sql = getSql();
+  await sql`DELETE FROM admin_sessions WHERE expires_at <= now()`;
   await sql`
     INSERT INTO admin_sessions (token_hash, expires_at)
     VALUES (${tokenHash}, ${expiresAt.toISOString()})
