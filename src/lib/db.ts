@@ -286,12 +286,12 @@ export async function savePendingAdminTotpSecret(encryptedSecret: string): Promi
 }
 
 /** Activate enrollment only after the user proves possession of the authenticator. */
-export async function enableAdminTotp(counter: number): Promise<boolean> {
-  if (!Number.isSafeInteger(counter) || counter < 0) return false;
+export async function enableAdminTotp(counter: number, recoveryCodeHashes: string[]): Promise<boolean> {
+  if (!Number.isSafeInteger(counter) || counter < 0 || recoveryCodeHashes.length !== 10 || recoveryCodeHashes.some((hash) => !/^[a-f0-9]{64}$/i.test(hash))) return false;
   const sql = getSql();
   const rows = await sql`
     UPDATE admin_mfa_credentials
-    SET enabled = true, last_used_counter = ${counter}, pending_expires_at = NULL, updated_at = now()
+    SET enabled = true, last_used_counter = ${counter}, recovery_code_hashes = ${recoveryCodeHashes}, pending_expires_at = NULL, updated_at = now()
     WHERE admin_id = 'primary' AND enabled = false AND pending_attempts < 5 AND pending_expires_at > now()
     RETURNING admin_id
   `;
@@ -420,4 +420,64 @@ export async function consumeAdminEmailMagicLink(tokenHash: string, origin: stri
     RETURNING token_hash
   `;
   return rows.length === 1;
+}
+
+
+/** Re-issue recovery codes only after a fresh TOTP proof and counter advance. */
+export async function regenerateAdminRecoveryCodes(counter: number, recoveryCodeHashes: string[]): Promise<boolean> {
+  if (!Number.isSafeInteger(counter) || counter < 0 || recoveryCodeHashes.length !== 10 || recoveryCodeHashes.some((hash) => !/^[a-f0-9]{64}$/i.test(hash))) return false;
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE admin_mfa_credentials
+    SET recovery_code_hashes = ${recoveryCodeHashes}, last_used_counter = ${counter}, updated_at = now()
+    WHERE admin_id = 'primary' AND enabled = true AND last_used_counter < ${counter}
+    RETURNING admin_id
+  `;
+  return rows.length === 1;
+}
+
+/** Atomically consume a recovery code and its pending login challenge. */
+export async function completeAdminMfaRecoveryChallenge(challengeHash: string, recoveryCodeHash: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    WITH valid_challenge AS (
+      SELECT token_hash FROM admin_mfa_challenges
+      WHERE token_hash = ${challengeHash} AND expires_at > now() AND attempts < 5
+      FOR UPDATE
+    ),
+    consumed_code AS (
+      UPDATE admin_mfa_credentials
+      SET recovery_code_hashes = array_remove(recovery_code_hashes, ${recoveryCodeHash}), updated_at = now()
+      WHERE admin_id = 'primary' AND enabled = true
+        AND ${recoveryCodeHash} = ANY(recovery_code_hashes)
+        AND EXISTS (SELECT 1 FROM valid_challenge)
+      RETURNING admin_id
+    ),
+    consumed_challenge AS (
+      DELETE FROM admin_mfa_challenges
+      WHERE token_hash = ${challengeHash} AND EXISTS (SELECT 1 FROM consumed_code)
+      RETURNING token_hash
+    )
+    SELECT token_hash FROM consumed_challenge
+  `;
+  return rows.length === 1;
+}
+
+/** Disable authenticator only after a fresh TOTP proof; callers revoke all sessions. */
+export async function disableAdminTotp(counter: number): Promise<boolean> {
+  if (!Number.isSafeInteger(counter) || counter < 0) return false;
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE admin_mfa_credentials
+    SET enabled = false, recovery_code_hashes = ARRAY[]::TEXT[], pending_expires_at = NULL,
+      last_used_counter = ${counter}, updated_at = now()
+    WHERE admin_id = 'primary' AND enabled = true AND last_used_counter < ${counter}
+    RETURNING admin_id
+  `;
+  return rows.length === 1;
+}
+
+export async function revokeAllAdminSessions(): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM admin_sessions`;
 }
