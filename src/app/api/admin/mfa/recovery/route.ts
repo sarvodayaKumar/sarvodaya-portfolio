@@ -5,7 +5,6 @@ import {
   completeAdminMfaRecoveryChallenge,
   createAdminSession,
   getAdminSessionWithMfaPolicy,
-  getAdminAuthAttempts,
   getAdminTotpCredential,
   recordAdminMfaChallengeFailure,
   recordFailedAdminAuthAttempt,
@@ -140,11 +139,7 @@ export async function POST(request: NextRequest) {
   }
   if (counter === null) {
     await auditAdminAuthEvent(request, "recovery_code", false);
-    const locked = false;
-    return NextResponse.json({ error: locked ? "Recovery-code management temporarily locked" : "Invalid authenticator code" }, {
-      status: locked ? 429 : 401,
-      headers: { ...HEADERS, ...(locked ? { "Retry-After": "900" } : {}) },
-    });
+    return NextResponse.json({ error: "Invalid authenticator code" }, { status: 401, headers: HEADERS });
   }
 
   const recoveryCodes = generateAdminRecoveryCodes(10);
