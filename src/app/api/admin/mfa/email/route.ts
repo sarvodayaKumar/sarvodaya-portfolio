@@ -11,6 +11,7 @@ import {
 import { createSessionToken, hashSessionToken, isSameOrigin } from "@/lib/admin-session";
 import { generateEmailOtp, hashMagicLinkToken, hashOneTimeCode } from "@/lib/admin-mfa";
 import { sendAdminMfaEmailCode } from "@/lib/admin-email";
+import { auditAdminAuthEvent } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,8 +50,10 @@ export async function POST(request: NextRequest) {
   );
   if (!saved) return NextResponse.json({ error: "Email code limit reached. Use your authenticator or sign in again." }, { status: 429, headers: HEADERS });
   if (!(await sendAdminMfaEmailCode(code))) {
+    await auditAdminAuthEvent(request, "email_otp", false);
     return NextResponse.json({ error: "Email delivery is unavailable. Use your authenticator or try again later." }, { status: 503, headers: HEADERS });
   }
+  await auditAdminAuthEvent(request, "email_otp", true);
   return NextResponse.json({ ok: true, message: "A one-time code was sent to the administrator email address." }, { headers: HEADERS });
 }
 
@@ -74,6 +77,7 @@ export async function PUT(request: NextRequest) {
 
   const codeHash = hashOneTimeCode(body.code, "email-mfa");
   if (!(await consumeAdminEmailOtpChallenge(challengeHash, codeHash))) {
+    await auditAdminAuthEvent(request, "email_otp", false);
     const attempts = await recordAdminEmailOtpFailure(challengeHash);
     const response = NextResponse.json({ error: attempts >= 5 ? "Email code attempts exceeded. Sign in again." : "Invalid or expired email code." }, {
       status: 401, headers: HEADERS,
@@ -82,6 +86,7 @@ export async function PUT(request: NextRequest) {
     return response;
   }
 
+  await auditAdminAuthEvent(request, "email_otp", true);
   const priorSession = request.cookies.get("admin_session")?.value;
   if (priorSession) await revokeAdminSession(hashSessionToken(priorSession));
   const token = createSessionToken();
