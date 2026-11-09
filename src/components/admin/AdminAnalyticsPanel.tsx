@@ -46,9 +46,11 @@ export default function AdminAnalyticsPanel() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const refresh = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+      setError("");
+    }
     try {
       const response = await fetch("/api/admin/analytics", { cache: "no-store" });
       if (!response.ok) throw new Error(response.status === 401
@@ -62,7 +64,10 @@ export default function AdminAnalyticsPanel() {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const handle = window.setTimeout(() => { void refresh(false); }, 0);
+    return () => window.clearTimeout(handle);
+  }, [refresh]);
 
   const maxViews = Math.max(1, ...(data?.daily.map((item) => item.views) ?? []));
   const hasData = Boolean(data && data.totalViews > 0);
