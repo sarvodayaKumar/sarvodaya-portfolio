@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       response.cookies.set(COOKIE_NAME, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/api", maxAge: 0 });
       response.cookies.set(MFA_CHALLENGE_COOKIE, challengeToken, {
         httpOnly: true, secure: process.env.NODE_ENV === "production",
-        sameSite: "strict", path: "/api/admin/mfa", maxAge: MFA_CHALLENGE_TTL_SECONDS,
+        sameSite: "strict", path: "/api/admin", maxAge: MFA_CHALLENGE_TTL_SECONDS,
       });
       return response;
     }
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     await createAdminSession(hashSessionToken(sessionToken), expiresAt, false);
     // Password authentication grants only the restricted enrollment session. All admin APIs require MFA assurance.
     const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: RESPONSE_HEADERS });
-    response.cookies.set(MFA_CHALLENGE_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/api/admin/mfa", maxAge: 0 });
+    response.cookies.set(MFA_CHALLENGE_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/api/admin", maxAge: 0 });
     setSessionCookie(response, sessionToken);
     return response;
   } catch {
@@ -160,7 +160,7 @@ export async function DELETE(request: NextRequest) {
   });
   response.cookies.set(MFA_CHALLENGE_COOKIE, "", {
     httpOnly: true, secure: process.env.NODE_ENV === "production",
-    sameSite: "strict", path: "/api/admin/mfa", maxAge: 0,
+    sameSite: "strict", path: "/api/admin", maxAge: 0,
   });
   return response;
 }
