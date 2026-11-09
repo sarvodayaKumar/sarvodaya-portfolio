@@ -226,7 +226,7 @@ export default function AdminMfaPage() {
                   <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-xs text-foreground">
                     {recoveryCodes.map((recoveryCode) => <code key={recoveryCode}>{recoveryCode}</code>)}
                   </div>
-                  <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\\n"))} className="mt-4 text-xs text-foreground underline underline-offset-4">Copy all recovery codes</button>
+                  <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n"))} className="mt-4 text-xs text-foreground underline underline-offset-4">Copy all recovery codes</button>
                   <button type="button" onClick={() => setRecoveryCodes([])} className="ml-4 mt-4 text-xs text-foreground underline underline-offset-4">I saved these codes</button>
                 </div>
               ) : (
@@ -234,7 +234,7 @@ export default function AdminMfaPage() {
                   <p className="text-sm font-semibold text-foreground">Recovery codes</p>
                   <p className="mt-1 text-xs text-muted">Regenerate to invalidate all previously issued codes. Enter a fresh authenticator code to confirm.</p>
                   <form onSubmit={(event) => { event.preventDefault(); regenerateRecoveryCodes(); }} className="mt-3 flex flex-wrap gap-2">
-                    <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={regenerateCode} onChange={(event) => setRegenerateCode(event.target.value.replace(/\\D/g, "").slice(0, 6))} aria-label="Current authenticator code" className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm text-foreground" />
+                    <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={regenerateCode} onChange={(event) => setRegenerateCode(event.target.value.replace(/\D/g, "").slice(0, 6))} aria-label="Current authenticator code" className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm text-foreground" />
                     <button disabled={regenerating || regenerateCode.length !== 6} className="rounded-full bg-foreground px-4 py-2 text-xs font-medium text-background disabled:opacity-50">{regenerating ? "Generating…" : "Regenerate"}</button>
                   </form>
                 </div>
