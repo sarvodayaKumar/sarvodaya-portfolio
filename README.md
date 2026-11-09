@@ -105,3 +105,14 @@ Pull requests run a Vercel CLI build-only validation after the unit and browser/
 Add a `VERCEL_TOKEN` secret under **GitHub → Settings → Secrets and variables → Actions** for this repository. The token needs access to the `sarvodaya-portfolio` Vercel team and the `sarvodaya-kumar` project.
 
 Vercel Preview deployments are disabled for this project. Production deployment remains handled by Vercel's Git integration when a commit reaches `main` after the pull request is merged. Keep the `main` branch protected and require the unit, Playwright/axe, and Vercel dry-run checks before allowing a merge.
+
+### CI Preview and CD Production deployments
+
+The GitHub Actions workflow separates validation and deployment:
+
+- Pull requests run unit tests and Playwright/axe checks. Only after both jobs pass, CI builds and deploys a Vercel Preview using `vercel build` and `vercel deploy --prebuilt`.
+- A push to `main` (normally the merge commit from an approved PR) runs the same test jobs. Only after they pass, the CD job builds with the Production environment and deploys with `vercel deploy --prebuilt --prod`.
+- Both jobs use the pinned Vercel CLI version `65.12.1` and require the GitHub Actions secret `VERCEL_TOKEN`.
+- Preview deployments are enabled in the Vercel project. Production deployment is performed by the GitHub Actions CD job.
+
+Configure `VERCEL_TOKEN` in GitHub repository Actions secrets. It must have access to the Vercel team `sarvodaya-portfolio` and project `sarvodaya-kumar`. Protect `main` and require the unit and browser checks before merge.
