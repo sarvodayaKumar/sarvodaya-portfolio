@@ -19,6 +19,7 @@ export default function AdminSignInForm() {
         credentials: "same-origin",
         body: JSON.stringify({ username, password }),
       });
+      const result = await response.json().catch(() => ({})) as { mfaRequired?: boolean };
       if (!response.ok) {
         setError(response.status === 429
           ? "Too many sign-in attempts. Try again in 15 minutes."
@@ -28,7 +29,7 @@ export default function AdminSignInForm() {
         return;
       }
       setPassword("");
-      window.location.assign("/admin");
+      window.location.assign(result.mfaRequired ? "/admin/mfa" : "/admin");
     } catch {
       setError("Unable to sign in. Please try again.");
     } finally {
