@@ -61,7 +61,7 @@ test("email OTPs are six digits and peppered hashes are purpose-bound", () => {
   const hash = hashOneTimeCode(code, "email-mfa", pepper);
   assert.equal(verifyOneTimeCode(code, hash, "email-mfa", pepper), true);
   assert.equal(verifyOneTimeCode(code, hash, "password-reset", pepper), false);
-  assert.equal(verifyOneTimeCode("000000", hash, "email-mfa", pepper), false);
+  assert.equal(verifyOneTimeCode(code === "000000" ? "000001" : "000000", hash, "email-mfa", pepper), false);
 });
 
 test("magic-link tokens are random and stored as one-way hashes", () => {
