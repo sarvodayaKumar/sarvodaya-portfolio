@@ -113,10 +113,8 @@ export async function PUT(request: NextRequest) {
     }
     const recoveryCodes = generateAdminRecoveryCodes(10);
     const recoveryHashes = recoveryCodes.map((recoveryCode) => hashOneTimeCode(recoveryCode.replace(/-/g, ""), "mfa-recovery"));
-    const enabled = await enableAdminTotp(counter, recoveryHashes);
+    const enabled = await enableAdminTotp(counter, recoveryHashes, credential.encryptedSecret, mfaClientKey, mfaAccountKey);
     if (!enabled) return NextResponse.json({ error: "Enrollment expired. Start again." }, { status: 409, headers: HEADERS });
-    await clearAdminAuthAttempts(mfaClientKey);
-    await clearAdminAuthAttempts(mfaAccountKey);
     await auditAdminAuthEvent(request, "totp_enrollment", true);
     return NextResponse.json({
       ok: true,
