@@ -229,7 +229,7 @@ export default function AdminMfaPage() {
                   <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n"))} className="mt-4 text-xs text-foreground underline underline-offset-4">Copy all recovery codes</button>
                   <button type="button" onClick={() => setRecoveryCodes([])} className="ml-4 mt-4 text-xs text-foreground underline underline-offset-4">I saved these codes</button>
                 </div>
-              ) : (
+              ) : mfaVerified ? (
                 <div className="mt-4 rounded-xl border border-border bg-background p-4">
                   <p className="text-sm font-semibold text-foreground">Recovery codes</p>
                   <p className="mt-1 text-xs text-muted">Regenerate to invalidate all previously issued codes. Enter a fresh authenticator code to confirm.</p>
@@ -238,6 +238,8 @@ export default function AdminMfaPage() {
                     <button disabled={regenerating || regenerateCode.length !== 6} className="rounded-full bg-foreground px-4 py-2 text-xs font-medium text-background disabled:opacity-50">{regenerating ? "Generating…" : "Regenerate"}</button>
                   </form>
                 </div>
+              ) : (
+                <p className="mt-4 text-sm text-muted">Complete an MFA sign-in before regenerating recovery codes.</p>
               )}
               <p className="mt-4 text-sm text-muted">New password sign-ins require a valid authenticator code, email OTP, or unused recovery code. Password-only sessions cannot access admin APIs.</p>
               {mfaVerified ? (
