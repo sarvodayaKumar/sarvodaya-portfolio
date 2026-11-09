@@ -1,0 +1,58 @@
+name: Remediate npm audit findings
+
+on:
+  push:
+    branches:
+      - ci/28-security-scanning
+    paths:
+      - .github/workflows/remediate-npm-audit.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: npm-audit-remediation
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ci/28-security-scanning
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Upgrade Next.js and compatible ESLint config
+        run: npm install --save-exact next@16.4.5 eslint-config-next@16.4.5
+
+      - name: Apply compatible transitive dependency fixes
+        run: npm audit fix
+
+      - name: Verify lockfile consistency
+        run: npm ci
+
+      - name: Run security audit
+        run: npm audit --audit-level=high
+
+      - name: Run unit and API tests
+        run: npm test
+
+      - name: Run production build
+        run: npm run build
+
+      - name: Commit validated dependency updates and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/remediate-npm-audit.yml
+          git add package.json package-lock.json .github/workflows/remediate-npm-audit.yml
+          git commit -m "fix: remediate vulnerable npm dependencies"
+          git push origin HEAD:ci/28-security-scanning
