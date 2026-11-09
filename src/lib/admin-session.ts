@@ -38,6 +38,12 @@ export function getAdminAuthClientKey(request: Request, pepper: string | undefin
   return createHmac("sha256", pepper).update(ip).digest("hex");
 }
 
+/** Stable keyed identity bucket for account-wide lockout without storing the username. */
+export function getAdminAuthAccountKey(identity: string, pepper: string | undefined): string | null {
+  if (!pepper || pepper.length < 32 || !identity.trim()) return null;
+  return createHmac("sha256", pepper).update("admin-account:" + identity.trim().toLowerCase()).digest("hex");
+}
+
 export function createSessionToken(): string {
   return randomBytes(SESSION_BYTES).toString("base64url");
 }
