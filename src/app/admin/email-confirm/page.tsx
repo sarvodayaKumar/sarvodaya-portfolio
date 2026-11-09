@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
 function subscribeToHash(callback: () => void) {
@@ -19,6 +19,11 @@ export default function AdminEmailConfirmPage() {
   const validToken = token.length >= 40 && token.length <= 128;
   const [status, setStatus] = useState<"verifying" | "invalid" | null>(null);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setStatus(null);
+    setError("");
+  }, [hashToken]);
 
   async function continueSignIn() {
     const oneTimeToken = hashToken;
