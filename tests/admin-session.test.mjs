@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import bcrypt from "bcryptjs";
 import {
   authorizeAdminSession, createSessionToken, hashSessionToken,
-  getAdminAuthClientKey, getAdminCredentialsFromBody, isSameOrigin,
+  getAdminAuthAccountKey, getAdminAuthClientKey, getAdminCredentialsFromBody, isSameOrigin,
   safeEqual, verifyAdminPassword,
 } from "../src/lib/admin-session.ts";
 
@@ -32,6 +32,15 @@ test("bcrypt password hashes verify and legacy scrypt hashes fail closed", async
   assert.equal(await verifyAdminPassword("wrong-password", encoded), false);
   assert.equal(await verifyAdminPassword("a-very-long-and-strong-test-password", undefined), false);
   assert.equal(await verifyAdminPassword("password", "scrypt$1$1$1$bad$bad"), false);
+});
+
+test("account lockout keys are stable, keyed, and do not expose the account identifier", () => {
+  const pepper = "p".repeat(32);
+  const first = getAdminAuthAccountKey("Admin@Example.Test", pepper);
+  assert.match(first, /^[a-f0-9]{64}$/);
+  assert.equal(first, getAdminAuthAccountKey("admin@example.test", pepper));
+  assert.notEqual(first, getAdminAuthAccountKey("other@example.test", pepper));
+  assert.equal(getAdminAuthAccountKey("admin@example.test", "short"), null);
 });
 
 test("admin auth client keys require a strong pepper and validated trusted proxy IP", () => {
