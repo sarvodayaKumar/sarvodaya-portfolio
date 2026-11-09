@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import PageLoader from "@/components/PageLoader";
+import PageViewTracker from "@/components/PageViewTracker";
 
 // Set once your AdSense application is approved — this stays inactive until then.
 const ADSENSE_CLIENT_ID = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full bg-background text-foreground antialiased">
         <ThemeProvider>
+          <PageViewTracker />
           <PageLoader>{children}</PageLoader>
         </ThemeProvider>
       </body>

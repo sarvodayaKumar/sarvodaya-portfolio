@@ -136,3 +136,89 @@ export async function revokeAdminSession(tokenHash: string): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM admin_sessions WHERE token_hash = ${tokenHash}`;
 }
+
+/** One global short-window ingestion cap; it stores no IP or visitor identifier. */
+export async function consumeSiteAnalyticsIngestLimit(windowSeconds: number): Promise<number> {
+  const sql = getSql();
+  const rows = await sql`
+    INSERT INTO site_analytics_ingest_limits (bucket_key, window_started_at, requests)
+    VALUES ('public', now(), 1)
+    ON CONFLICT (bucket_key) DO UPDATE SET
+      requests = CASE
+        WHEN site_analytics_ingest_limits.window_started_at <= now() - make_interval(secs => ${windowSeconds}) THEN 1
+        ELSE site_analytics_ingest_limits.requests + 1
+      END,
+      window_started_at = CASE
+        WHEN site_analytics_ingest_limits.window_started_at <= now() - make_interval(secs => ${windowSeconds}) THEN now()
+        ELSE site_analytics_ingest_limits.window_started_at
+      END
+    RETURNING requests
+  `;
+  return Number(rows[0]?.requests ?? 1);
+}
+
+/** Store only daily route/referrer aggregates, never individual events or visitor data. */
+export async function recordSitePageView(path: string, referrerHost: string): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO site_analytics_daily (day, path, referrer_host, page_views)
+    VALUES (CURRENT_DATE, ${path}, ${referrerHost}, 1)
+    ON CONFLICT (day, path, referrer_host) DO UPDATE SET
+      page_views = LEAST(site_analytics_daily.page_views + 1, 2147483647)
+  `;
+  await sql`DELETE FROM site_analytics_daily WHERE day < CURRENT_DATE - INTERVAL '90 days'`;
+}
+
+/** Return bounded 30-day aggregates for the authenticated dashboard. */
+export async function getSiteAnalytics(days = 30) {
+  const boundedDays = Math.max(1, Math.min(30, Math.trunc(days) || 30));
+  const sql = getSql();
+  const dailyRows = await sql`
+    SELECT to_char(calendar.day, 'YYYY-MM-DD') AS day,
+      COALESCE(SUM(analytics.page_views), 0)::int AS views
+    FROM generate_series(
+      CURRENT_DATE - ${boundedDays - 1},
+      CURRENT_DATE,
+      INTERVAL '1 day'
+    ) AS calendar(day)
+    LEFT JOIN site_analytics_daily AS analytics
+      ON analytics.day = calendar.day::date
+    GROUP BY calendar.day
+    ORDER BY calendar.day ASC
+  `;
+  const pageRows = await sql`
+    SELECT path AS label, SUM(page_views)::int AS views
+    FROM site_analytics_daily
+    WHERE day >= CURRENT_DATE - (${boundedDays - 1}) AND day <= CURRENT_DATE
+    GROUP BY path
+    ORDER BY views DESC, path ASC
+    LIMIT 10
+  `;
+  const referrerRows = await sql`
+    SELECT referrer_host AS label, SUM(page_views)::int AS views
+    FROM site_analytics_daily
+    WHERE day >= CURRENT_DATE - (${boundedDays - 1}) AND day <= CURRENT_DATE
+    GROUP BY referrer_host
+    ORDER BY views DESC, referrer_host ASC
+    LIMIT 10
+  `;
+  const daily = dailyRows.map((row) => ({
+    day: String(row.day),
+    views: Number(row.views ?? 0),
+  }));
+  const topPages = pageRows.map((row) => ({
+    label: String(row.label),
+    views: Number(row.views ?? 0),
+  }));
+  const topReferrers = referrerRows.map((row) => ({
+    label: String(row.label),
+    views: Number(row.views ?? 0),
+  }));
+  return {
+    totalViews: daily.reduce((total, row) => total + row.views, 0),
+    periodDays: boundedDays,
+    daily,
+    topPages,
+    topReferrers,
+  };
+}
