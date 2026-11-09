@@ -1,8 +1,6 @@
 import { createHash, createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
 import { isIP } from "node:net";
 
-const scrypt = promisify(scryptCallback);
 const SESSION_BYTES = 32;
 const SCRYPT_N = 65_536;
 const SCRYPT_R = 8;
@@ -29,9 +27,11 @@ export async function verifyAdminPassword(password: string, encoded: string | un
     const salt = Buffer.from(parts[4], "base64url");
     const expected = Buffer.from(parts[5], "base64url");
     if (salt.length < 16 || salt.length > 64 || expected.length !== SCRYPT_KEY_LENGTH) return false;
-    const actual = await scrypt(password, salt, SCRYPT_KEY_LENGTH, {
-      N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, maxmem: SCRYPT_MAXMEM,
-    }) as Buffer;
+    const actual = await new Promise<Buffer>((resolve, reject) => {
+      scryptCallback(password, salt, SCRYPT_KEY_LENGTH, {
+        N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, maxmem: SCRYPT_MAXMEM,
+      }, (error, derivedKey) => error ? reject(error) : resolve(derivedKey));
+    });
     return timingSafeEqual(actual, expected);
   } catch {
     return false;
