@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   await auditAdminAuthEvent(request, "email_magic_link", issued);
   return NextResponse.json(GENERIC, {
     status: attempts > 5 || accountAttempts > 5 ? 429 : 200,
-    headers: { ...HEADERS, ...(attempts > 5 ? { "Retry-After": "900" } : {}) },
+    headers: { ...HEADERS, ...(attempts > 5 || accountAttempts > 5 ? { "Retry-After": "900" } : {}) },
   });
 }
 
