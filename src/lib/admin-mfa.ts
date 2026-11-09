@@ -156,3 +156,13 @@ export function hashMagicLinkToken(token: string, pepper = process.env.ADMIN_AUT
   if (!pepper || pepper.length < 32) throw new Error("ADMIN_AUTH_PEPPER must contain at least 32 characters");
   return createHmac("sha256", pepper).update(token).digest("hex");
 }
+
+
+/** Generate ten high-entropy recovery codes; only their keyed hashes are persisted. */
+export function generateAdminRecoveryCodes(count = 10): string[] {
+  if (!Number.isInteger(count) || count < 1 || count > 10) throw new Error("Invalid recovery-code count");
+  return Array.from({ length: count }, () => {
+    const raw = randomBytes(10).toString("hex").toUpperCase();
+    return raw.match(/.{1,5}/g)!.join("-");
+  });
+}
