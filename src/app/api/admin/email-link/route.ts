@@ -107,7 +107,12 @@ export async function PUT(request: NextRequest) {
   }
   await auditAdminAuthEvent(request, "email_magic_link", true);
 
-  const credential = await getAdminTotpCredential().catch(() => null);
+  let credential;
+  try {
+    credential = await getAdminTotpCredential();
+  } catch {
+    return NextResponse.json({ error: "Authentication temporarily unavailable" }, { status: 503, headers: HEADERS });
+  }
   const previousSession = request.cookies.get("admin_session")?.value;
   if (previousSession) await revokeAdminSession(hashSessionToken(previousSession));
   const response = NextResponse.json({ ok: true, mfaRequired: true }, { headers: HEADERS });
@@ -124,6 +129,7 @@ export async function PUT(request: NextRequest) {
     await createAdminMfaChallenge(
       hashMagicLinkToken(challengeToken),
       new Date(Date.now() + CHALLENGE_TTL_SECONDS * 1000),
+      false,
     );
     response.cookies.set("admin_mfa_challenge", challengeToken, {
       httpOnly: true,
