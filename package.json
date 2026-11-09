@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "bcryptjs": "3.0.3",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "framer-motion": "^13.2.0",
@@ -29,6 +30,7 @@
     "next": "16.4.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "qrcode.react": "4.2.0",
     "react-markdown": "^10.1.0",
     "three": "^0.185.1"
   },

@@ -19,6 +19,10 @@ test("every API route is explicitly classified as private or public", async () =
   const publicRoutes = new Set([
     "src/app/api/comments/route.ts",
     "src/app/api/admin/session/route.ts",
+    "src/app/api/admin/mfa/challenge/route.ts",
+    "src/app/api/admin/mfa/email/route.ts",
+    "src/app/api/admin/mfa/recovery/route.ts",
+    "src/app/api/admin/email-link/route.ts",
     "src/app/api/analytics/route.ts",
   ]);
   assert.ok(files.length > 0);
@@ -29,6 +33,33 @@ test("every API route is explicitly classified as private or public", async () =
       assert.match(source, /isSameOrigin/);
       assert.match(source, /content-length/);
       assert.match(source, /countRecentByIp/);
+      continue;
+    }
+    if (file === "src/app/api/admin/mfa/challenge/route.ts") {
+      assert.match(source, /getValidAdminMfaChallenge/);
+      assert.match(source, /isSameOrigin/);
+      assert.match(source, /completeAdminMfaChallenge/);
+      continue;
+    }
+    if (file === "src/app/api/admin/mfa/email/route.ts") {
+      assert.match(source, /getValidAdminMfaChallenge/);
+      assert.match(source, /isSameOrigin/);
+      assert.match(source, /consumeAdminEmailOtpChallenge/);
+      assert.match(source, /createAdminSession/);
+      continue;
+    }
+    if (file === "src/app/api/admin/mfa/recovery/route.ts") {
+      assert.match(source, /isSameOrigin/);
+      assert.match(source, /completeAdminMfaRecoveryChallenge/);
+      assert.match(source, /getAdminSessionWithMfaPolicy/);
+      assert.match(source, /regenerateAdminRecoveryCodes/);
+      continue;
+    }
+    if (file === "src/app/api/admin/email-link/route.ts") {
+      assert.match(source, /isSameOrigin/);
+      assert.match(source, /consumeAdminEmailMagicLink/);
+      assert.match(source, /hashMagicLinkToken/);
+      assert.match(source, /createAdminMfaChallenge/);
       continue;
     }
     if (file === "src/app/api/admin/session/route.ts") {
@@ -44,5 +75,6 @@ test("every API route is explicitly classified as private or public", async () =
     }
     assert.ok(!publicRoutes.has(file), `${file} must not be accidentally public`);
     assert.match(source, /authorizeAdminSession/, `${file} must validate the administrator session`);
+    assert.match(source, /getAdminSessionWithMfaPolicy|getRecentAdminMfaSession/, `${file} must independently enforce MFA assurance`);
   }
 });

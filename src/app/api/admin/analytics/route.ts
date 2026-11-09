@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorizeAdminSession } from "@/lib/admin-session";
-import { getSiteAnalytics, getValidAdminSession } from "@/lib/db";
+import { getSiteAnalytics, getAdminSessionWithMfaPolicy } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ const HEADERS = {
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get("admin_session")?.value;
-  const authorized = await authorizeAdminSession(token, getValidAdminSession);
+  const authorized = await authorizeAdminSession(token, getAdminSessionWithMfaPolicy);
   if (!authorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: HEADERS });
   }

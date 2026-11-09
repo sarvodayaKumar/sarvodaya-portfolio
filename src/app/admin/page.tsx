@@ -126,6 +126,7 @@ export default function AdminOperationsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <a href="#analytics" className="rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-card">Analytics</a>
+          <Link href="/admin/mfa" className="rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-card">Authenticator security</Link>
           <Link href="/admin/comments" className="rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-card">Comments moderation</Link>
           <button onClick={refresh} disabled={loading} className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50">{loading ? "Refreshing…" : "Refresh"}</button>
           <button onClick={signOut} className="rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-card">Sign out</button>

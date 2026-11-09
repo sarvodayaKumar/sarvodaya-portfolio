@@ -69,10 +69,18 @@ def main() -> int:
     refresh_token = os.environ.get("MS_GRAPH_REFRESH_TOKEN", "").strip()
     recipient = os.environ.get("EMAIL_TO", expected_account).strip()
 
-    if not expected_account or not client_id or not refresh_token:
+    missing = [
+        name for name, value in (
+            ("OUTLOOK_EMAIL", expected_account),
+            ("MS_GRAPH_CLIENT_ID", client_id),
+            ("MS_GRAPH_REFRESH_TOKEN", refresh_token),
+        ) if not value
+    ]
+    if missing:
+        # The scanner jobs are independent; this notification job should expose its own misconfiguration.
         print(
-            "::error::Daily email is not configured. Set OUTLOOK_EMAIL and add "
-            "MS_GRAPH_CLIENT_ID and MS_GRAPH_REFRESH_TOKEN as GitHub Actions secrets.",
+            "::error::Daily security email cannot run; missing configuration: "
+            + ", ".join(missing),
             file=sys.stderr,
         )
         return 1

@@ -1,16 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, scryptSync } from "node:crypto";
+import bcrypt from "bcryptjs";
 import {
   authorizeAdminSession, createSessionToken, hashSessionToken,
-  getAdminAuthClientKey, getAdminCredentialsFromBody, isSameOrigin,
+  getAdminAuthAccountKey, getAdminAuthClientKey, getAdminCredentialsFromBody,
+  getAdminMfaAccountKey, getAdminMfaClientKey, isSameOrigin,
   safeEqual, verifyAdminPassword,
 } from "../src/lib/admin-session.ts";
 
-function passwordHash(password) {
-  const salt = randomBytes(16);
-  const key = scryptSync(password, salt, 64, { N: 65_536, r: 8, p: 1, maxmem: 128 * 1024 * 1024 });
-  return `scrypt$65536$8$1$${salt.toString("base64url")}$${key.toString("base64url")}`;
+async function passwordHash(password) {
+  return bcrypt.hash(password, 12);
 }
 
 test("credential parsing rejects malformed login payloads", () => {
@@ -28,12 +27,35 @@ test("username comparisons are constant-time and exact", () => {
   assert.equal(safeEqual("short", "a-longer-value"), false);
 });
 
-test("scrypt password hashes verify and malformed hashes fail closed", async () => {
-  const encoded = passwordHash("a-very-long-and-strong-test-password");
+test("bcrypt password hashes verify and legacy scrypt hashes fail closed", async () => {
+  const encoded = await passwordHash("a-very-long-and-strong-test-password");
   assert.equal(await verifyAdminPassword("a-very-long-and-strong-test-password", encoded), true);
   assert.equal(await verifyAdminPassword("wrong-password", encoded), false);
   assert.equal(await verifyAdminPassword("a-very-long-and-strong-test-password", undefined), false);
   assert.equal(await verifyAdminPassword("password", "scrypt$1$1$1$bad$bad"), false);
+});
+
+test("account lockout keys are stable, keyed, and do not expose the account identifier", () => {
+  const pepper = "p".repeat(32);
+  const first = getAdminAuthAccountKey("Admin@Example.Test", pepper);
+  assert.match(first, /^[a-f0-9]{64}$/);
+  assert.equal(first, getAdminAuthAccountKey("admin@example.test", pepper));
+  assert.notEqual(first, getAdminAuthAccountKey("other@example.test", pepper));
+  assert.equal(getAdminAuthAccountKey("admin@example.test", "short"), null);
+});
+
+test("MFA throttling uses independent keyed IP and account buckets", () => {
+  const pepper = "p".repeat(32);
+  const request = new Request("https://example.test/api/admin/mfa", { headers: { "x-vercel-forwarded-for": "203.0.113.8" } });
+  const passwordIpKey = getAdminAuthClientKey(request, pepper);
+  const mfaIpKey = getAdminMfaClientKey(request, pepper);
+  assert.match(mfaIpKey, /^[a-f0-9]{64}$/);
+  assert.notEqual(passwordIpKey, mfaIpKey);
+  const passwordAccountKey = getAdminAuthAccountKey("admin@example.test", pepper);
+  const mfaAccountKey = getAdminMfaAccountKey("admin@example.test", pepper);
+  assert.notEqual(passwordAccountKey, mfaAccountKey);
+  assert.equal(getAdminMfaClientKey(request, "short"), null);
+  assert.equal(getAdminMfaAccountKey("admin@example.test", "short"), null);
 });
 
 test("admin auth client keys require a strong pepper and validated trusted proxy IP", () => {

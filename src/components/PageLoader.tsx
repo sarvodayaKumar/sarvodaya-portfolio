@@ -1,16 +1,32 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import BootScreen from "./BootScreen";
 import { IntroContext } from "./IntroContext";
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+function subscribeReducedMotion(callback: () => void) {
+  const media = window.matchMedia(REDUCED_MOTION_QUERY);
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+function getReducedMotionSnapshot() { return window.matchMedia(REDUCED_MOTION_QUERY).matches; }
+function getServerReducedMotionSnapshot() { return false; }
 
 export default function PageLoader({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(true);
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState(10);
+  const reducedMotion = useSyncExternalStore(subscribeReducedMotion, getReducedMotionSnapshot, getServerReducedMotionSnapshot);
 
   useEffect(() => {
+    if (ready) return;
+    if (reducedMotion) {
+      document.body.style.overflow = "";
+      return;
+    }
+
     let cancelled = false;
     let current = 10;
     document.body.style.overflow = "hidden";
@@ -32,16 +48,6 @@ export default function PageLoader({ children }: { children: React.ReactNode }) 
       }, 380);
     };
 
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      window.clearInterval(tick);
-      setProgress(100);
-      setVisible(false);
-      setReady(true);
-      document.body.style.overflow = "";
-      return;
-    }
-
     const hold = new Promise<void>((resolve) => {
       window.setTimeout(resolve, 1400);
     });
@@ -58,25 +64,25 @@ export default function PageLoader({ children }: { children: React.ReactNode }) 
       window.clearInterval(tick);
       document.body.style.overflow = "";
     };
-  }, []);
+  }, [reducedMotion, ready]);
 
-  const intro = useMemo(() => ({ ready }), [ready]);
+  const intro = useMemo(() => ({ ready: ready || reducedMotion }), [ready, reducedMotion]);
 
   return (
     <IntroContext.Provider value={intro}>
       <AnimatePresence>
-        {visible && (
+        {visible && !reducedMotion && (
           <motion.div
             className="boot-overlay"
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           >
-            <BootScreen progress={progress} />
+            <BootScreen progress={reducedMotion ? 100 : progress} />
           </motion.div>
         )}
       </AnimatePresence>
-      <div aria-hidden={visible}>{children}</div>
+      <div aria-hidden={visible && !reducedMotion}>{children}</div>
     </IntroContext.Provider>
   );
 }

@@ -1,14 +1,8 @@
-import { createHash, createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
+import bcrypt from "bcryptjs";
 
-const scrypt = promisify(scryptCallback);
 const SESSION_BYTES = 32;
-const SCRYPT_N = 65_536;
-const SCRYPT_R = 8;
-const SCRYPT_P = 1;
-const SCRYPT_KEY_LENGTH = 64;
-const SCRYPT_MAXMEM = 128 * 1024 * 1024;
 
 export function safeEqual(candidate: string, expected: string): boolean {
   const left = Buffer.from(candidate);
@@ -16,23 +10,12 @@ export function safeEqual(candidate: string, expected: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-/** Format: scrypt$N$r$p$salt$key (base64url); only bounded parameters are accepted. */
+/** Verify bcrypt hashes (cost 12); reject passwords exceeding bcrypt's 72-byte limit. */
 export async function verifyAdminPassword(password: string, encoded: string | undefined): Promise<boolean> {
-  if (!encoded || !password || password.length > 1024) return false;
-  const parts = encoded.split("$");
-  if (parts.length !== 6 || parts[0] !== "scrypt") return false;
-  const n = Number(parts[1]);
-  const r = Number(parts[2]);
-  const p = Number(parts[3]);
-  if (n !== SCRYPT_N || r !== SCRYPT_R || p !== SCRYPT_P) return false;
+  if (!encoded || !/^\$2[aby]\$12\$[./A-Za-z0-9]{53}$/.test(encoded) || !password || password.length > 1024) return false;
+  if (bcrypt.truncates(password)) return false;
   try {
-    const salt = Buffer.from(parts[4], "base64url");
-    const expected = Buffer.from(parts[5], "base64url");
-    if (salt.length < 16 || salt.length > 64 || expected.length !== SCRYPT_KEY_LENGTH) return false;
-    const actual = await scrypt(password, salt, SCRYPT_KEY_LENGTH, {
-      N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, maxmem: SCRYPT_MAXMEM,
-    }) as Buffer;
-    return timingSafeEqual(actual, expected);
+    return await bcrypt.compare(password, encoded);
   } catch {
     return false;
   }
@@ -53,6 +36,26 @@ export function getAdminAuthClientKey(request: Request, pepper: string | undefin
   const ip = rawIp?.split(",")[0]?.trim();
   if (!ip || isIP(ip) === 0) return null;
   return createHmac("sha256", pepper).update(ip).digest("hex");
+}
+
+/** Stable keyed identity bucket for account-wide lockout without storing the username. */
+export function getAdminAuthAccountKey(identity: string, pepper: string | undefined): string | null {
+  if (!pepper || pepper.length < 32 || !identity.trim()) return null;
+  return createHmac("sha256", pepper).update("admin-account:" + identity.trim().toLowerCase()).digest("hex");
+}
+
+/** Independent MFA throttle buckets so a successful password check cannot reset factor failures. */
+export function getAdminMfaClientKey(request: Request, pepper: string | undefined): string | null {
+  if (!pepper || pepper.length < 32) return null;
+  const rawIp = request.headers.get("x-vercel-forwarded-for") ?? request.headers.get("x-real-ip");
+  const ip = rawIp?.split(",")[0]?.trim();
+  if (!ip || isIP(ip) === 0) return null;
+  return createHmac("sha256", pepper).update("admin-mfa-client:" + ip).digest("hex");
+}
+
+export function getAdminMfaAccountKey(identity: string, pepper: string | undefined): string | null {
+  if (!pepper || pepper.length < 32 || !identity.trim()) return null;
+  return createHmac("sha256", pepper).update("admin-mfa-account:" + identity.trim().toLowerCase()).digest("hex");
 }
 
 export function createSessionToken(): string {
