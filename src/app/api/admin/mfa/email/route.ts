@@ -5,7 +5,6 @@ import {
   createAdminSession,
   createAdminEmailOtpChallenge,
   getAdminTotpCredential,
-  getAdminAuthAttempts,
   getValidAdminMfaChallenge,
   recordAdminEmailOtpFailure,
   recordFailedAdminAuthAttempt,
