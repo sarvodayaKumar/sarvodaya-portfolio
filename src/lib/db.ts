@@ -399,3 +399,25 @@ export async function consumeAdminEmailOtpChallenge(challengeHash: string, codeH
   `;
   return rows.length === 1;
 }
+
+
+/** Persist only a peppered token digest and the exact origin that requested it. */
+export async function createAdminEmailMagicLink(tokenHash: string, origin: string, expiresAt: Date): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM admin_email_magic_links WHERE expires_at <= now()`;
+  await sql`
+    INSERT INTO admin_email_magic_links (token_hash, origin, expires_at)
+    VALUES (${tokenHash}, ${origin}, ${expiresAt.toISOString()})
+  `;
+}
+
+/** Single-use and origin-bound passwordless login token. */
+export async function consumeAdminEmailMagicLink(tokenHash: string, origin: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    DELETE FROM admin_email_magic_links
+    WHERE token_hash = ${tokenHash} AND origin = ${origin} AND expires_at > now()
+    RETURNING token_hash
+  `;
+  return rows.length === 1;
+}
