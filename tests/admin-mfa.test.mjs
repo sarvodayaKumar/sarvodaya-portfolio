@@ -6,6 +6,7 @@ import {
   decryptTotpSecret,
   encodeBase32,
   encryptTotpSecret,
+  generateAdminRecoveryCodes,
   generateEmailOtp,
   generateTotpSecret,
   getTotpCounterForCode,
@@ -69,4 +70,12 @@ test("magic-link tokens are random and stored as one-way hashes", () => {
   const second = hashMagicLinkToken("token-two", pepper);
   assert.notEqual(first, second);
   assert.match(first, /^[a-f0-9]{64}$/);
+});
+
+test("recovery codes are unique, high-entropy, and formatted for one-time use", () => {
+  const codes = generateAdminRecoveryCodes();
+  assert.equal(codes.length, 10);
+  assert.equal(new Set(codes).size, 10);
+  for (const code of codes) assert.match(code, /^[A-F0-9]{5}(?:-[A-F0-9]{5}){3}$/);
+  assert.throws(() => generateAdminRecoveryCodes(11));
 });
