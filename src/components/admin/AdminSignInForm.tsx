@@ -7,6 +7,8 @@ export default function AdminSignInForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkNotice, setLinkNotice] = useState("");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,6 +39,26 @@ export default function AdminSignInForm() {
     }
   }
 
+  async function requestMagicLink() {
+    setLinkBusy(true);
+    setLinkNotice("");
+    try {
+      const response = await fetch("/api/admin/email-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email: username }),
+      });
+      const result = await response.json().catch(() => ({})) as { message?: string; error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Unable to request a sign-in link.");
+      setLinkNotice(result.message ?? "If the address is eligible, a sign-in link will be sent.");
+    } catch (cause) {
+      setLinkNotice(cause instanceof Error ? cause.message : "Unable to request a sign-in link.");
+    } finally {
+      setLinkBusy(false);
+    }
+  }
+
   return (
     <main className="mx-auto flex min-h-[60svh] max-w-sm flex-col justify-center px-6">
       <h1 className="text-2xl font-semibold text-foreground">Administrator sign in</h1>
@@ -62,6 +84,13 @@ export default function AdminSignInForm() {
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
+      <div className="mt-5 border-t border-border pt-5">
+        <p className="text-sm text-muted">Prefer passwordless sign-in?</p>
+        <button type="button" onClick={requestMagicLink} disabled={linkBusy || !username.trim()} className="mt-2 text-sm text-foreground underline underline-offset-4 disabled:opacity-50">
+          {linkBusy ? "Requesting…" : "Email me a sign-in link"}
+        </button>
+        {linkNotice && <p className="mt-2 text-sm text-muted" role="status">{linkNotice}</p>}
+      </div>
       {error && <p className="mt-3 text-sm text-red-500" role="alert">{error}</p>}
     </main>
   );
