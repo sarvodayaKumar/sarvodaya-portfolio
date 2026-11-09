@@ -40,7 +40,7 @@ function clearChallengeCookie(response: NextResponse) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    path: "/api/admin/mfa",
+    path: "/api/admin",
     maxAge: 0,
   });
 }
