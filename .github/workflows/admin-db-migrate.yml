@@ -52,31 +52,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install pinned Vercel CLI
-        run: npm install --global vercel@65.12.1
-
-      - name: Link the existing Vercel project
+      - name: Validate production database secret
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::VERCEL_TOKEN is required for the manually approved database migration."
-            exit 1
-          fi
-          vercel link --yes --project sarvodaya-kumar --scope sarvodaya-portfolio --token="$VERCEL_TOKEN"
-
-      - name: Pull production runtime environment
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-
-      - name: Apply idempotent database schema migration
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         shell: bash
         run: |
           set -euo pipefail
-          test -s .vercel/.env.production.local
+          if [[ -z "${DATABASE_URL:-}" ]]; then
+            echo "::error::Add PRODUCTION_DATABASE_URL as a secret in the GitHub production environment."
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            postgres://*|postgresql://*) ;;
+            *)
+              echo "::error::PRODUCTION_DATABASE_URL must be a PostgreSQL connection URL."
+              exit 1
+              ;;
+          esac
+
+      - name: Apply idempotent database schema migration
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
           node --input-type=module -e '
-            process.loadEnvFile(".vercel/.env.production.local");
             if (!process.env.DATABASE_URL?.startsWith("postgres")) {
               throw new Error("Production DATABASE_URL is missing or invalid");
             }
